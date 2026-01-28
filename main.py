@@ -7,7 +7,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 
-# --- SETUP ---
+# ---- SETUP ----
 load_dotenv()
 MY_USERNAME = os.getenv("BOERSEN_EMAIL")
 MY_PASSWORD = os.getenv("BOERSEN_PASSWORD")
