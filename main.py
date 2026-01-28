@@ -1,3 +1,6 @@
+#main.py is under GPL-2.0 (Gnu Public License 2.0 or newer)
+
+
 import asyncio
 import os
 import re
