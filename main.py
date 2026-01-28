@@ -7,7 +7,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 
-# ---- SETUP ----
+# --- SETUP ---
 load_dotenv()
 MY_USERNAME = os.getenv("BOERSEN_EMAIL")
 MY_PASSWORD = os.getenv("BOERSEN_PASSWORD")
@@ -39,6 +39,40 @@ def extract_json_list(text):
         if start == -1 or end == -1: return None
         return json.loads(text[start : end + 1])
     except: return None
+
+def print_analysis_summary(decisions):
+    """Gibt eine strukturierte Übersicht der KI-Entscheidungen auf der Konsole aus."""
+    print("\n" + "="*40)
+    print("📋 ZUSAMMENFASSUNG DER KI-ANALYSE")
+    print("="*40)
+
+    if not decisions:
+        print("🤷‍♂️ Die KI hat keine Aktionen empfohlen (HOLD Strategie).")
+        return
+
+    print(f"💡 Es wurden {len(decisions)} Aktionen vorgeschlagen:\n")
+
+    for i, trade in enumerate(decisions, 1):
+        action = trade.get("aktion", "UNKNOWN").upper()
+        name = trade.get("name", "Unbekannt")
+        reason = trade.get("grund", "Keine Begründung angegeben.")
+        
+        if action == "BUY":
+            isin = trade.get("isin", "N/A")
+            amount = trade.get("betrag_eur", 0)
+            print(f"{i}. 🟢 KAUFEN: {name}")
+            print(f"    ├─ ISIN:   {isin}")
+            print(f"    ├─ Budget: {amount} €")
+            print(f"    └─ Grund:  {reason}")
+            
+        elif action == "SELL":
+            print(f"{i}. 🔴 VERKAUFEN: {name}")
+            print(f"    └─ Grund:  {reason}")
+        
+        else:
+            print(f"{i}. ⚪ {action}: {name} ({reason})")
+            
+        print("-" * 40)
 
 # --- KAUF LOGIK (Original) ---
 
@@ -300,12 +334,13 @@ async def run_bot():
         MEIN AKTUELLES DEPOT: {json.dumps(depot_data['stocks'])}
         
         AUFGABE:
-        1. Recherchiere aktuelle News zu meinen besessenen Aktien. Soll ich sie HALTEN oder VERKAUFEN ("SELL")?
-        2. Recherchiere nach NEUEN Aktien mit hohem Potenzial ("BUY").
+        1. Recherchiere ausführlich aktuelle News zu meinen besessenen Aktien. Soll ich sie HALTEN oder VERKAUFEN ("SELL","HOLD")?
+        2. Recherchiere ausführlich nach NEUEN Aktien mit hohem Potenzial ("BUY").
         3. WICHTIG: Gib bei BUY unbedingt die ISIN an, damit ich die richtige Aktie finde.
         4. Du musst nicht immer alles machen, wenn es nicht sicher vorteilhaft ist, kannst du auch buy oder sell aktionen weglassen und nur eins davon machen oder wenn alles gehalten werden soll, eine leere menge zurückgeben "[]"
         5. Du wirst in etwa einer Stunde erneut die chance haben die selbe Aufgabe mit dem neuen depot zu machen und so weiter, beachte das.
-        
+        6. Du musst nicht das ganze Budget investieren, dazu ist später immer noch Zeit.
+
         ANTWORT FORMAT (JSON LISTE):
         [
           {{ "aktion": "BUY", "name": "AktienName", "isin": "isin", "betrag_eur": betrag_eur, "grund": "News..." }},
@@ -318,12 +353,15 @@ async def run_bot():
             await page.fill("div[contenteditable='true'], textarea", prompt)
             await page.locator(".run-button-label", has_text="Run").click()
             print("⏳ Recherche läuft (ca. 45s)...")
-            await asyncio.sleep(45)
+            await asyncio.sleep(60)
             ans = await page.locator('div[data-turn-role="Model"]').last.inner_text()
             decisions = extract_json_list(ans)
         except Exception as e:
             print(f"❌ KI Fehler: {e}")
             decisions = []
+        
+        # --- ZUSAMMENFASSUNG ANZEIGEN ---
+        print_analysis_summary(decisions)
 
         # 4. EXECUTION
         if decisions:
