@@ -1,3 +1,9 @@
+import asyncio
+import math
+from helping_func import clean_amount
+
+OON_DEPOT_URL = "https://www.oon-boersespiel.at/de/boersespiel.html#/personal/portfolio//detail/overview"
+
 # --- EXECUTION FUNKTION ---
 
 async def execute_buy_order(page, stock_name, budget_eur):

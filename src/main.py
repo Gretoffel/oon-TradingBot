@@ -6,6 +6,8 @@ import math
 from datetime import datetime
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
+from helping_func import clean_amount, extract_json_list
+from run_oon import execute_buy_order
 
 # --- SETUP ---
 load_dotenv()
@@ -26,10 +28,6 @@ TEST_TRADES = [
         "grund": "Testlauf"
     }
 ]
-
-# --- EXECUTION FUNKTION ---
-
-# here should be run-oon.py be started
 
 # --- MAIN ---
 

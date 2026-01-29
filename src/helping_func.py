@@ -1,3 +1,6 @@
+import re
+import json
+
 def clean_amount(text):
     if not text: return 0.0
     cleaned = re.sub(r'[^\d,.-]', '', text)
