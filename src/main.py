@@ -1,3 +1,11 @@
+#
+# Copyright (C) 2026 Gretoffel
+# Modified by seesee010
+# 
+# This program is licensed under GNU General Public License, Version 2.0
+# See LICENSE file for details
+#
+
 import asyncio
 import os
 import re
