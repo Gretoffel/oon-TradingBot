@@ -9,7 +9,10 @@ Read the Info.md, you should create an file called ".env" in the main folder wit
 
 ## Setup
 
-```pip install playwright
-python -m playwright install```
+```
+pip install playwright
+python -m playwright install
+```
 
 Then create the .env folder
+
