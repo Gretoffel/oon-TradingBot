@@ -20,7 +20,6 @@ def extract_json_list(text):
     try:
         text = text.replace('```json', '').replace('```', '')
         text = re.sub(r'\[\d+\]', '', text) 
-        text = text.replace('[]', '') 
         start = text.find('[')
         end = text.rfind(']')
         if start == -1 or end == -1: return None

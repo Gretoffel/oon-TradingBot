@@ -1,7 +1,7 @@
 {
-    "timestamp": 1769868228.7816114,
-    "phase": "Pausiert",
-    "details": "Warte auf Start-Befehl...",
+    "timestamp": 1769871994.800651,
+    "phase": "Fehler",
+    "details": "Absturz: BrowserContext.close: Target page, context or browser has been closed",
     "balance": 0.0,
     "is_alive": true
 }
