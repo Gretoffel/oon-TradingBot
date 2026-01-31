@@ -30,14 +30,15 @@ Architecture
 
 1. Clone the repository
 
-```bashgit clone https://github.com/Gretoffel/oon-TradingBot.git
+```bash
+git clone https://github.com/Gretoffel/oon-TradingBot.git
 cd oon-TradingBot
 ```
 
 ## Install dependencies
 
 ```bash 
-pip install playwright python-dotenv
+pip install playwright python-dotenv streamlit
 python -m playwright install
 ```
 
@@ -46,7 +47,7 @@ python -m playwright install
 - Create a .env file in the project root:
 
 ```
-envBOERSEN_EMAIL=your_email@example.com
+BOERSEN_EMAIL=your_email@example.com
 BOERSEN_PASSWORD=your_password
 API_KEY=your_google_api_key
 ```
@@ -54,21 +55,39 @@ API_KEY=your_google_api_key
 > Security Note: Never commit the .env file to version control. It's already included in .gitignore.
 
 ## Usage
-Standard Mode (with AI)
-bashpython main.py
-The bot will:
 
-- Log into your OÖN account
-- Scrape current portfolio data
-- Send data to Google AI for analysis
-- Execute recommended trades
-- Wait 3 minutes and repeat
+### Standard Mode (with AI & Dashboard)
+
+```bash
+python main.py
+```
+
+The bot will automatically:
+1. Start the **Web Dashboard** (usually at `http://localhost:8501`)
+2. Log into your OÖN account in a browser window
+3. Scrape current portfolio data
+4. Send data to Google AI for analysis
+5. Execute recommended trades
+6. Sleep for the configured duration (default: 3 min)
+
+**Do not close the opened browser windows manually**, as the bot needs them to interact with the sites.
+
+### Web Dashboard
+Note: It is recommended to use ngrok in order to remotely access the dashboard.
+
+The included Streamlit dashboard provides a real-time interface to:
+- Monitor the bot's current status (Active, Sleeping, Error)
+- View the latest portfolio balance
+- See the last log messages
+- **Pause/Resume** the bot remotely
+- Stop the bot safely
 
 ### Test Mode (without AI)
 Edit config.py:
 
-```py
-pythonTEST_MODE = True
+```python
+TEST_MODE = True
+
 TEST_ORDERS = [
     {
         "aktion": "BUY",
@@ -88,9 +107,12 @@ Press CTRL+C to gracefully shut down.
 ## Configuration
 Key settings in config.py:
 
-```py
-VariableDefaultDescriptionSUCCESS_WAIT_SECONDS180 (3 min)Wait time between successful cyclesERROR_WAIT_SECONDS10Wait time after errors before retryTEST_MODEFalseEnable/disable test modeLOG_DIR./logsDirectory for transaction logs
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SUCCESS_WAIT_SECONDS` | 300 (5 min) | Wait time between successful cycles |
+| `ERROR_WAIT_SECONDS` | 10 | Wait time after errors before retry |
+| `TEST_MODE` | `False` | Enable/disable test mode (uses `TEST_ORDERS` instead of AI) |
+| `LOG_DIR` | `./logs` | Directory for transaction logs |
 
 ## Logs
 Transaction logs are stored in ./logs/ with daily rotation:
