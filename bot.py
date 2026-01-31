@@ -5,6 +5,7 @@ from datetime import datetime
 from playwright.async_api import async_playwright
 
 import config
+import remote_manager  # <--- NEU: Für Status-Updates an das Dashboard
 from utils import clean_amount, extract_json_list, print_analysis_summary, get_todays_log_content
 from actions import execute_buy_order, execute_sell_order
 
@@ -12,6 +13,11 @@ async def run_bot_cycle():
     """Führt einen einzelnen Zyklus des Bots aus."""
     print("\n" + "="*40)
     print("🤖 TRADING BOT ZYKLUS STARTET")
+    
+    # --- STATUS UPDATE: START ---
+    remote_manager.update_status("Start", "Initialisiere Browser...", balance=0.0)
+    # ----------------------------
+
     if config.TEST_MODE:
         print("⚠️  ACHTUNG: TEST-MODUS AKTIV (Keine KI)")
     print("="*40)
@@ -19,15 +25,21 @@ async def run_bot_cycle():
     async with async_playwright() as p:
         context = await p.chromium.launch_persistent_context(
             user_data_dir=config.USER_DATA_DIR,
-            headless=False,
+            headless=False, # Setze auf True, wenn der Browser unsichtbar sein soll
             args=["--disable-blink-features=AutomationControlled"]
         )
         context.set_default_timeout(15000)
         
+        # Variable für Cash-Tracking im Dashboard
+        current_cash = 0.0
+
         try:
             page = context.pages[0] if context.pages else await context.new_page()
 
             # 1. LOGIN
+            # --- STATUS UPDATE: LOGIN ---
+            remote_manager.update_status("Login", "Logge bei OON ein...")
+            # ----------------------------
             print("🚀 Login...")
             try:
                 await page.goto(config.OON_LOGIN_URL)
@@ -43,6 +55,9 @@ async def run_bot_cycle():
                 print(f"⚠️ Login-Check übersprungen oder Fehler: {e}")
 
             # 2. SCANNING
+            # --- STATUS UPDATE: SCAN ---
+            remote_manager.update_status("Scan", "Lese Depot und Cash aus...")
+            # ---------------------------
             print("📊 Lese Depot-Daten...")
             await page.goto(config.OON_DEPOT_URL)
             try:
@@ -63,7 +78,11 @@ async def run_bot_cycle():
                     if "Geldkonto" in await span.locator("xpath=..").inner_text():
                         depot_data["cash"] = clean_amount(await span.inner_text())
             except: pass
-            print(f"💰 Verfügbares Cash (laut Anzeige): {depot_data['cash']} €")
+            
+            # Update Cash Variable & Status
+            current_cash = depot_data["cash"]
+            print(f"💰 Verfügbares Cash (laut Anzeige): {current_cash} €")
+            remote_manager.update_status("Scan", "Analysiere Positionen...", balance=current_cash)
 
             # --- B) BESTAND AUSLESEN ---
             try:
@@ -155,6 +174,10 @@ async def run_bot_cycle():
             # ---------------------------------------------------------
             decisions = []
             
+            # --- STATUS UPDATE: KI ---
+            remote_manager.update_status("KI", "Frage KI nach Strategie...", balance=current_cash)
+            # -------------------------
+
             if config.TEST_MODE:
                 print("\n🧪 TEST-MODUS: Überspringe KI. Lade Test-Daten...")
                 decisions = config.TEST_ORDERS
@@ -307,6 +330,10 @@ async def run_bot_cycle():
             if decisions:
                 print("\n" + "⚡ EXECUTION PHASE".center(40, "="))
                 
+                # --- STATUS UPDATE: TRADING ---
+                remote_manager.update_status("Trading", f"Verarbeite {len(decisions)} Signale...", balance=current_cash)
+                # ------------------------------
+
                 if page.url != config.OON_DEPOT_URL:
                     await page.goto(config.OON_DEPOT_URL)
                     await page.wait_for_load_state("networkidle")
@@ -318,6 +345,10 @@ async def run_bot_cycle():
                     isin = trade.get("isin", "N/A")
                     reason = trade.get("grund", "Kein Grund")
                     
+                    # --- STATUS UPDATE: AKTUELLE AKTION ---
+                    remote_manager.update_status("Trading", f"{typ}: {name}", balance=current_cash)
+                    # --------------------------------------
+
                     if typ == "BUY":
                         already_ordered = any(o['name'] == name or o['isin'] == isin for o in depot_data['open_orders'] if o['type'] == "BUY")
                         if already_ordered:
@@ -336,7 +367,10 @@ async def run_bot_cycle():
                             continue
 
                         await execute_buy_order(page, search_term, amt, real_name=name, isin=isin, reason=reason)
+                        
+                        # Cash lokal anpassen, damit Status stimmt
                         depot_data["cash"] -= amt
+                        current_cash = depot_data["cash"]
                         await asyncio.sleep(3)
                     
                     elif typ == "SELL":
@@ -345,10 +379,17 @@ async def run_bot_cycle():
                             qty_to_sell = owned_stock["qty"]
                             print(f"🔴 Verkaufe {qty_to_sell} Stück von {name} (Perf: {owned_stock['performance_since_buy']})...")                            
                             await execute_sell_order(page, owned_stock["name"], qty_to_sell, reason=reason)
-                            depot_data["cash"] += owned_stock["value_eur"] 
+                            
+                            # Cash lokal anpassen (Schätzung)
+                            depot_data["cash"] += owned_stock["value_eur"]
+                            current_cash = depot_data["cash"] 
                         else:
                             print(f"⚠️ Kann {name} nicht verkaufen: Nicht im Depot gefunden.")
 
+            # --- STATUS UPDATE: FERTIG ---
+            remote_manager.update_status("Fertig", "Zyklus beendet.", balance=current_cash)
+            # -----------------------------
+            
             print("\n✅ Zyklus abgeschlossen.")
             await asyncio.sleep(5)
             
