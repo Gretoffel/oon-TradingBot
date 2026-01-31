@@ -94,3 +94,18 @@ def log_success(action, name, isin, amount, price, reason):
         
     except Exception as e:
         print(f"   ⚠️ Fehler beim Schreiben des Logs: {e}")
+
+
+def get_todays_log_content():
+    """Liest den Inhalt des heutigen Logfiles, falls vorhanden."""
+    try:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        filename = os.path.join(config.LOG_DIR, f"log_{today_str}.txt")
+        
+        if os.path.exists(filename):
+            with open(filename, "r", encoding="utf-8") as f:
+                content = f.read()
+            return content if content else "Keine Transaktionen heute."
+        return "Keine Transaktionen heute."
+    except Exception as e:
+        return f"Fehler beim Lesen des Logs: {e}"

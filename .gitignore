@@ -3,3 +3,7 @@
 google_session/*
 mainbackup.py
 temp.html
+logs/*
+tempLogCopy.txt
+blackboard.txt
+backup/*

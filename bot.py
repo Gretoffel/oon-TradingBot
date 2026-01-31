@@ -5,7 +5,7 @@ from datetime import datetime
 from playwright.async_api import async_playwright
 
 import config
-from utils import clean_amount, extract_json_list, print_analysis_summary
+from utils import clean_amount, extract_json_list, print_analysis_summary, get_todays_log_content # <--- NEU IMPORTIERT
 from actions import execute_buy_order, execute_sell_order
 
 async def run_bot_cycle():
@@ -29,15 +29,18 @@ async def run_bot_cycle():
 
             # 1. LOGIN
             print("🚀 Login...")
-            await page.goto(config.OON_LOGIN_URL)
-            try: await page.click("#onetrust-reject-all-handler", timeout=2000)
-            except: pass
+            try:
+                await page.goto(config.OON_LOGIN_URL)
+                try: await page.click("#onetrust-reject-all-handler", timeout=2000)
+                except: pass
 
-            if await page.is_visible("#usernameid"):
-                await page.fill("#usernameid", config.MY_USERNAME)
-                await page.fill("#passwordid", config.MY_PASSWORD)
-                await page.keyboard.press("Enter")
-                await asyncio.sleep(5)
+                if await page.is_visible("#usernameid"):
+                    await page.fill("#usernameid", config.MY_USERNAME)
+                    await page.fill("#passwordid", config.MY_PASSWORD)
+                    await page.keyboard.press("Enter")
+                    await asyncio.sleep(5)
+            except Exception as e:
+                print(f"⚠️ Login-Check übersprungen oder Fehler: {e}")
 
             # 2. SCANNING
             print("📊 Lese Depot-Daten...")
@@ -62,10 +65,9 @@ async def run_bot_cycle():
             except: pass
             print(f"💰 Verfügbares Cash (laut Anzeige): {depot_data['cash']} €")
 
-            # --- B) BESTAND AUSLESEN (mit Performance) ---
+            # --- B) BESTAND AUSLESEN ---
             try:
                 rows = await page.locator("tbody tr[role='row']").all()
-                
                 for row in rows:
                     try:
                         row_text = await row.inner_text()
@@ -82,12 +84,10 @@ async def run_bot_cycle():
 
                         qty_el = row.locator("[data-currency='STK']").first
                         qty_text = await qty_el.inner_text() if await qty_el.count() > 0 else "0"
-                        qty = clean_amount(qty_text)
                         
                         val_el = row.locator("[data-currency='EUR']").last
                         val_text = await val_el.inner_text() if await val_el.count() > 0 else "0"
                         
-                        # Performance auslesen (%)
                         perf_text = "N/A"
                         try:
                             cells = await row.locator("td").all()
@@ -98,6 +98,7 @@ async def run_bot_cycle():
                                     break
                         except: pass
 
+                        qty = clean_amount(qty_text)
                         if qty > 0:
                             stock_entry = {
                                 "name": name.strip(),
@@ -115,15 +116,13 @@ async def run_bot_cycle():
             print("🔍 Prüfe auf offene Aufträge...")
             try:
                 open_order_rows = await page.locator("xpath=//h3[contains(text(), 'Offene Aufträge')]/following::tt-table[1]//tbody//tr").all()
-                
-                if not open_order_rows:
-                    print("   ℹ️ Keine offenen Aufträge gefunden.")
-                
                 for row in open_order_rows:
                     try:
+                        full_text = await row.inner_text()
+                        if not full_text.strip(): continue
+
                         cell_1 = row.locator("td").nth(0)
                         name = await cell_1.locator("strong").inner_text()
-                        full_text = await cell_1.inner_text()
                         
                         isin_match = re.search(r'\b([A-Z]{2}[A-Z0-9]{9}\d)\b', full_text)
                         isin = isin_match.group(1) if isin_match else "Unbekannt"
@@ -145,10 +144,8 @@ async def run_bot_cycle():
                         }
                         depot_data["open_orders"].append(entry)
                         print(f"   ⏳ Offener Auftrag: {entry['type']} {entry['qty']}x {entry['name']}")
-                        
                     except Exception as e:
                         continue
-
             except Exception as e:
                 print(f"⚠️ Scan Fehler (Offene Aufträge): {e}")
 
@@ -163,6 +160,11 @@ async def run_bot_cycle():
                 decisions = config.TEST_ORDERS
             else:
                 print("\n🧠 Frage KI (Google Search)...")
+                
+                # --- NEU: Logs holen ---
+                todays_logs = get_todays_log_content()
+                # -----------------------
+
                 await page.goto(config.AI_STUDIO_URL)
                 await asyncio.sleep(4)
 
@@ -173,10 +175,11 @@ async def run_bot_cycle():
                 
                 MEIN FINANZ-STATUS:
                 - Verfügbares Cash (Anzeige): {depot_data['cash']} EUR.
-                - ACHTUNG: Das angezeigte Cash beinhaltet NOCH NICHT die Kosten für offene Kauf-Aufträge!
+                
+                BEREITS HEUTE DURCHGEFÜHRTE TRANSAKTIONEN (Log):
+                {todays_logs}
                 
                 MEIN AKTUELLES DEPOT (Besitz): 
-                Das Feld 'performance_since_buy' zeigt an, wie stark die Aktie seit dem Kauf gestiegen oder gefallen ist.
                 {json.dumps(depot_data['stocks'])}
                 
                 MEINE OFFENEN AUFTRÄGE (Warten auf Ausführung):
@@ -188,7 +191,7 @@ async def run_bot_cycle():
                 3. Schlage "SELL" vor für schlechte Aktien im Besitz.
                 4. Schlage "BUY" vor für neue Chancen.
                 5. Du musst nicht immer alles machen, wenn es nicht sicher vorteilhaft ist, kannst du auch buy oder sell aktionen weglassen und nur eins davon machen oder wenn alles gehalten werden soll, eine leere menge zurückgeben "[]"
-                6. Du wirst in etwa 20 minuten erneut die chance haben die selbe Aufgabe mit dem neuen depot zu machen und so weiter, beachte das.
+                6. Du wirst in etwa 10-20 minuten erneut die chance haben die selbe Aufgabe mit dem neuen depot zu machen und so weiter, beachte das.
                 7. Du musst nicht das ganze Budget investieren, dazu ist später immer noch Zeit.
                 
                 REGELN:
@@ -203,7 +206,7 @@ async def run_bot_cycle():
                 ANTWORT FORMAT (JSON LISTE):
                 [
                   {{ "aktion": "BUY", "name": "Name", "isin": "ISIN", "betrag_eur": 1000, "grund": "News..." }},
-                  {{ "aktion": "SELL", "name": "Name", "isin": "ISIN", "betrag_eur": 1000, "grund": "Gewinnmitnahme (+12%)..." }}
+                  {{ "aktion": "SELL", "name": "Name", "isin": "ISIN", "betrag_eur": 1000, "grund": "Gewinnmitnahme..." }}
                 ]
                 Gib nur das JSON zurück.
                 """
@@ -211,7 +214,7 @@ async def run_bot_cycle():
                 try:
                     await page.fill("div[contenteditable='true'], textarea", prompt)
                     
-                    # Erstmaliger Run
+                    # Run Button
                     await page.locator(".run-button-label", has_text="Run").click()
                     print("⏳ Recherche läuft...")
 
@@ -219,38 +222,50 @@ async def run_bot_cycle():
                     max_retries = 3
                     for attempt in range(max_retries):
                         print(f"   ... Warte auf Antwort (Versuch {attempt + 1})...")
-                        await asyncio.sleep(45) # Wartezeit für Generierung
+                        await asyncio.sleep(45)
 
-                        # Check: Ist ein Fehler aufgetreten?
-                        # Wir prüfen hier nur, ob das Element existiert (ohne Error, wenn es 0 mal da ist)
                         error_locator = page.locator(".model-error")
                         
                         if await error_locator.count() > 0 and await error_locator.last.is_visible():
                             print("\n⚠️ ACHTUNG: Google AI Fehler erkannt! (model-error)")
                             
-                            # --- FIX FÜR DEN FEHLER ---
-                            # Wir holen alle Buttons, die so heißen
                             rerun_btns = page.locator("button[aria-label='Rerun this turn']")
                             
-                            # Wenn wir welche finden, nehmen wir den LETZTEN (.last), da dieser zum aktuellen Chat gehört
                             if await rerun_btns.count() > 0:
-                                print("🔄 Klicke 'Rerun' Button (Letzter verfügbarer)...")
-                                await rerun_btns.last.click()
-                                # Schleife läuft weiter zum nächsten `wait`
+                                rerun_btn = rerun_btns.last
+                                print("🔄 Versuche 'Rerun' Button zu klicken...")
+                                
+                                # --- FIX START: Robuster Klick auf versteckten Button ---
+                                try:
+                                    # 1. Scrollen
+                                    await rerun_btn.scroll_into_view_if_needed()
+                                    
+                                    # 2. Versuch zu Hovern (macht Button oft sichtbar)
+                                    # Wir nutzen force=True beim Hover, falls er verdeckt ist
+                                    await rerun_btn.hover(force=True)
+                                    await asyncio.sleep(0.5) 
+                                    
+                                    # 3. Klick mit force=True (ignoriert checks ob element visible/enable)
+                                    await rerun_btn.click(force=True)
+                                    
+                                except Exception as click_err:
+                                    print(f"   ⚠️ Standard-Klick fehlgeschlagen ({click_err}). Versuche JavaScript-Klick...")
+                                    # 4. Fallback: JavaScript Click (der "nukleare" Weg)
+                                    await rerun_btn.evaluate("node => node.click()")
+                                # --- FIX ENDE ---
+
                             else:
                                 print("❌ Konnte Rerun-Button nicht finden!")
                                 break
                         else:
-                            # Kein Fehler sichtbar -> Prüfe ob Text da ist
                             ans_locator = page.locator('div[data-turn-role="Model"]').last
                             if await ans_locator.count() > 0:
                                 ans = await ans_locator.inner_text()
                                 if ans and len(ans) > 10:
-                                    # Gültige Antwort gefunden
                                     decisions = extract_json_list(ans)
                                     break
                             else:
-                                print("   ... Noch keine Antwort/Fehler sichtbar. Warte noch kurz...")
+                                print("   ... Noch keine Antwort. Warte...")
                                 await asyncio.sleep(15)
 
                 except Exception as e:
@@ -295,10 +310,11 @@ async def run_bot_cycle():
                         await asyncio.sleep(3)
                     
                     elif typ == "SELL":
+                        # Suche nach Namensübereinstimmung
                         owned_stock = next((s for s in depot_data["stocks"] if name in s["name"] or s["name"] in name), None)
                         if owned_stock:
                             qty_to_sell = owned_stock["qty"]
-                            print(f"🔴 Verkaufe {qty_to_sell} Stück von {name} (Perf: {owned_stock['performance_since_buy']})...")
+                            print(f"🔴 Verkaufe {qty_to_sell} Stück von {name} (Perf: {owned_stock['performance_since_buy']})...")                            
                             await execute_sell_order(page, owned_stock["name"], qty_to_sell, reason=reason)
                             depot_data["cash"] += owned_stock["value_eur"] 
                         else:

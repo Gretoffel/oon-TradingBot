@@ -16,7 +16,7 @@ AI_STUDIO_URL = "https://aistudio.google.com/app/prompts/new_chat"
 # Settings
 USER_DATA_DIR = "./google_session"
 LOG_DIR = "./logs"                # <--- NEU: Ordner für Logfiles
-SUCCESS_WAIT_SECONDS = 3 * 60    # 20 Minuten
+SUCCESS_WAIT_SECONDS = 10 * 60    # 20 Minuten
 ERROR_WAIT_SECONDS = 10           # 10 Sekunden
 
 # --- TEST MODUS KONFIGURATION ---
