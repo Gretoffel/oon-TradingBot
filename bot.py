@@ -11,12 +11,11 @@ from actions import execute_buy_order, execute_sell_order
 
 async def check_soft_crash(page):
     """
-    Prüft NUR auf visuelle 'Aw, Snap!' Fehler (HTML-Ebene).
-    Wenn der Tab technisch schon tot ist (Target crashed), wirft diese Funktion einen Fehler,
-    der im Main-Loop abgefangen wird, um den Tab komplett zu ersetzen.
+    Prüft auf 'Aw, Snap!' Fehler.
+    Gibt True zurück, wenn ein Crash erkannt und ein Reload angestoßen wurde.
     """
     try:
-        # Check 1: Titel (wirft Exception, wenn Target crashed)
+        # Check 1: Titel (wirft Exception, wenn Target crashed/disconnected ist)
         title = await page.title()
         if "Aw, Snap!" in title:
             print("🚨 SOFT CRASH DETECTED (Title). Versuche Reload...")
@@ -25,18 +24,22 @@ async def check_soft_crash(page):
             await asyncio.sleep(4)
             return True
 
-        # Check 2: Visuelles Element
-        crash_header = page.locator("h1").filter(has_text="Aw, Snap!")
-        if await crash_header.count() > 0 and await crash_header.first.is_visible():
-            print("🚨 SOFT CRASH DETECTED (Header). Versuche Reload...")
-            await page.reload()
-            await page.wait_for_load_state("networkidle")
-            await asyncio.sleep(4)
-            return True
+        # Check 2: Visuelles Element im DOM
+        # Wir nutzen ein kurzes Timeout, damit wir hier nicht unnötig blockieren
+        try:
+            crash_header = page.locator("h1").filter(has_text="Aw, Snap!")
+            if await crash_header.count() > 0 and await crash_header.first.is_visible():
+                print("🚨 SOFT CRASH DETECTED (Header). Versuche Reload...")
+                await page.reload()
+                await page.wait_for_load_state("networkidle")
+                await asyncio.sleep(4)
+                return True
+        except:
+            pass # Element-Check kann fehlschlagen, wenn Seite tot ist -> Exception wird unten gefangen
             
     except Exception as e:
-        # Wenn hier ein Fehler auftritt (z.B. Target crashed), geben wir ihn weiter,
-        # damit der Tab im Main-Loop neu erstellt werden kann.
+        # Wenn hier ein Fehler auftritt (z.B. "Target closed"), werfen wir ihn,
+        # damit die Hauptschleife den Tab komplett neu erstellt.
         raise e 
             
     return False
@@ -237,8 +240,12 @@ async def run_bot_cycle():
                             await page.goto(config.AI_STUDIO_URL)
                             await asyncio.sleep(4)
                         
-                        # 3. Soft Crash Check (HTML Ebene)
-                        await check_soft_crash(page)
+                        # 3. Soft Crash Check (Vorher)
+                        # Wenn hier ein Crash erkannt wird (und reloadet wurde),
+                        # starten wir den Loop von vorne, um den Prompt sicher einzugeben.
+                        if await check_soft_crash(page):
+                            print("   ⚠️ Crash beim Start erkannt -> Neustart des Versuchs.")
+                            continue
 
                         # 4. Input Prompt
                         await page.wait_for_selector("div[contenteditable='true'], textarea", timeout=8000)
@@ -258,12 +265,14 @@ async def run_bot_cycle():
                         for poll_tick in range(15): 
                             await asyncio.sleep(4) 
                             
-                            # Soft Check zwischendurch
+                            # --- CRITICAL: Soft Check IN DER SCHLEIFE ---
+                            # Wenn Aw Snap hier passiert, ist der Prompt weg (wegen Reload).
+                            # Wir müssen aus dem Polling Loop ausbrechen und den Versuch neu starten.
                             if await check_soft_crash(page):
-                                print("⚠️ Soft Crash beim Warten. Neustart Zyklus.")
-                                break 
+                                print("⚠️ Soft Crash beim Warten. Breche Polling ab und versuche neu...")
+                                break # Bricht Polling ab -> nächster Versuch im `attempt` Loop
 
-                            # Google Error
+                            # Google Error (Rerun Handling)
                             error_locator = page.locator(".model-error")
                             if await error_locator.count() > 0 and await error_locator.last.is_visible():
                                 print("\n⚠️ Google AI Error. Versuche Rerun...")
@@ -272,24 +281,23 @@ async def run_bot_cycle():
                                     rerun_btns = page.locator("button[aria-label='Rerun this turn']")
                                     if await rerun_btns.count() > 0:
                                         await rerun_btns.last.click()
+                                        # Nach Rerun direkt weiter warten, kein Break
                                         continue
                                     else:
+                                        # Kein Rerun Button -> Reload nötig
                                         await page.reload()
-                                        break
-                                except: break
+                                        break # Nächster Versuch
+                                except: 
+                                    break # Fehler beim Handling -> Nächster Versuch
 
                             # Antwort lesen
                             ans_locator = page.locator('div[data-turn-role="Model"]').last
                             if await ans_locator.count() > 0:
                                 current_text = await ans_locator.inner_text()
                                 
-                                # ÄNDERUNG HIER: Statt > 20 reichen >= 2 Zeichen (für "[]")
                                 if len(current_text) >= 2 and "]" in current_text:
-                                    
                                     if len(current_text) == last_text_len:
                                         parsed_json = extract_json_list(current_text)
-                                        
-                                        # Prüfen ob NICHT None (eine leere Liste [] ist auch nicht None!)
                                         if parsed_json is not None:
                                             decisions = parsed_json
                                             found_answer = True
@@ -311,14 +319,12 @@ async def run_bot_cycle():
                             print("\n🛑 FATALER BROWSER FEHLER (Target crashed).")
                             print("♻️  ERSTELLE NEUEN TAB UND STARTE NEU...\n")
                             try:
-                                await page.close() # Versuchen, den toten Tab zu schließen
+                                await page.close() 
                             except: pass
                             
-                            # NEUEN TAB ERSTELLEN
                             page = await context.new_page()
                             await asyncio.sleep(2)
                         else:
-                            # Bei anderen Fehlern nur kurz warten
                             await asyncio.sleep(5)
                 
                 if not ai_success:

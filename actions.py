@@ -119,7 +119,7 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
             print(f"   -> Kaufe Menge: {qty}")
 
             # 4. ORDER
-            await page.fill(qty_selector, str(qty))
+            await page.fill(qty_selector, str(int(qty)))
             await asyncio.sleep(1)
             
             buy_btn = page.locator("button[type='submit']").filter(has_text="Kaufen")
@@ -202,7 +202,7 @@ async def execute_sell_order(page, stock_name, quantity, reason="-"):
             return
             
         await asyncio.sleep(1)
-        await page.fill(qty_input_sel, str(quantity))
+        await page.fill(qty_input_sel, str(int(quantity)))
         await asyncio.sleep(1)
 
         submit_btn = page.locator("button[type='submit']").filter(has_text="Verkaufen")

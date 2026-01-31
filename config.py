@@ -16,7 +16,7 @@ AI_STUDIO_URL = "https://aistudio.google.com/app/prompts/new_chat"
 # Settings
 USER_DATA_DIR = "./google_session"
 LOG_DIR = "./logs"                # <--- NEU: Ordner für Logfiles
-SUCCESS_WAIT_SECONDS = 10 * 60    # 10 Minuten
+SUCCESS_WAIT_SECONDS = 5 * 60    # 10 Minuten
 ERROR_WAIT_SECONDS = 10           # 10 Sekunden
 
 # --- TEST MODUS KONFIGURATION ---
@@ -25,9 +25,9 @@ TEST_MODE = False
 TEST_ORDERS = [
     {
         "aktion": "SELL",
-        "name": "Microsoft",
-        "isin": "US5949181045",
-        "betrag_eur": 355,
+        "name": "Palantir Technologies Inc",
+        "isin": "US69608A1088",
+        "betrag_eur": 985,
         "grund": "Manueller Testlauf für selling"
     }
 ]
