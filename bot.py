@@ -5,7 +5,7 @@ from datetime import datetime
 from playwright.async_api import async_playwright
 
 import config
-from utils import clean_amount, extract_json_list, print_analysis_summary, get_todays_log_content # <--- NEU IMPORTIERT
+from utils import clean_amount, extract_json_list, print_analysis_summary, get_todays_log_content
 from actions import execute_buy_order, execute_sell_order
 
 async def run_bot_cycle():
@@ -161,9 +161,7 @@ async def run_bot_cycle():
             else:
                 print("\n🧠 Frage KI (Google Search)...")
                 
-                # --- NEU: Logs holen ---
                 todays_logs = get_todays_log_content()
-                # -----------------------
 
                 await page.goto(config.AI_STUDIO_URL)
                 await asyncio.sleep(4)
@@ -218,55 +216,87 @@ async def run_bot_cycle():
                     await page.locator(".run-button-label", has_text="Run").click()
                     print("⏳ Recherche läuft...")
 
-                    # Retry Loop für "model-error"
                     max_retries = 3
+                    
+                    # Äußerer Loop: Versuche den gesamten Turn neu, falls es crasht
                     for attempt in range(max_retries):
                         print(f"   ... Warte auf Antwort (Versuch {attempt + 1})...")
-                        await asyncio.sleep(45)
-
-                        error_locator = page.locator(".model-error")
                         
-                        if await error_locator.count() > 0 and await error_locator.last.is_visible():
-                            print("\n⚠️ ACHTUNG: Google AI Fehler erkannt! (model-error)")
+                        found_answer = False
+                        last_text_len = 0 # Zum Prüfen, ob noch getippt wird
+                        
+                        # --- NEU: SMART POLLING MIT STABILITÄTS-CHECK ---
+                        # Wir warten maximal 15x 4 Sekunden = 60 Sekunden pro Versuch
+                        for poll_tick in range(15): 
+                            await asyncio.sleep(4) 
                             
-                            rerun_btns = page.locator("button[aria-label='Rerun this turn']")
-                            
-                            if await rerun_btns.count() > 0:
-                                rerun_btn = rerun_btns.last
-                                print("🔄 Versuche 'Rerun' Button zu klicken...")
-                                
-                                # --- FIX START: Robuster Klick auf versteckten Button ---
+                            # 1. ERROR CHECK (Sofort prüfen)
+                            error_locator = page.locator(".model-error")
+                            if await error_locator.count() > 0 and await error_locator.last.is_visible():
+                                print("\n⚠️ ACHTUNG: Google AI Fehler erkannt! (model-error)")
                                 try:
-                                    # 1. Scrollen
-                                    await rerun_btn.scroll_into_view_if_needed()
+                                    # Fix: Maus-Trick anwenden, um Button sichtbar zu machen
+                                    error_element = error_locator.last
+                                    await error_element.scroll_into_view_if_needed()
                                     
-                                    # 2. Versuch zu Hovern (macht Button oft sichtbar)
-                                    # Wir nutzen force=True beim Hover, falls er verdeckt ist
-                                    await rerun_btn.hover(force=True)
-                                    await asyncio.sleep(0.5) 
+                                    box = await error_element.bounding_box()
+                                    if box:
+                                        # Maus zur Mitte bewegen
+                                        await page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+                                        await asyncio.sleep(0.5)
+                                    else:
+                                        await error_element.hover(force=True)
                                     
-                                    # 3. Klick mit force=True (ignoriert checks ob element visible/enable)
-                                    await rerun_btn.click(force=True)
-                                    
-                                except Exception as click_err:
-                                    print(f"   ⚠️ Standard-Klick fehlgeschlagen ({click_err}). Versuche JavaScript-Klick...")
-                                    # 4. Fallback: JavaScript Click (der "nukleare" Weg)
-                                    await rerun_btn.evaluate("node => node.click()")
-                                # --- FIX ENDE ---
+                                    await asyncio.sleep(1)
 
-                            else:
-                                print("❌ Konnte Rerun-Button nicht finden!")
-                                break
-                        else:
+                                    rerun_btns = page.locator("button[aria-label='Rerun this turn']")
+                                    if await rerun_btns.count() > 0:
+                                        print("🔄 Rerun-Button gefunden. Klicke (JS)...")
+                                        await rerun_btns.last.evaluate("node => node.click()")
+                                        # Wir brechen den Polling-Loop ab, damit der äußere Loop (attempt) neu wartet
+                                        break 
+                                    else:
+                                        print("❌ Rerun-Button trotz Hover nicht im DOM gefunden.")
+                                        break
+                                except Exception as click_err:
+                                    print(f"❌ Fehler beim Rerun-Klick: {click_err}")
+                                    break
+                            
+                            # 2. ANTWORT CHECK (Mit Stabilitäts-Prüfung)
+                            # Wir prüfen nur, wenn kein Fehler da war
                             ans_locator = page.locator('div[data-turn-role="Model"]').last
                             if await ans_locator.count() > 0:
-                                ans = await ans_locator.inner_text()
-                                if ans and len(ans) > 10:
-                                    decisions = extract_json_list(ans)
-                                    break
-                            else:
-                                print("   ... Noch keine Antwort. Warte...")
-                                await asyncio.sleep(15)
+                                current_text = await ans_locator.inner_text()
+                                current_len = len(current_text)
+                                
+                                # A) Ist Text da und sieht er grob nach JSON aus?
+                                if current_len > 20 and "]" in current_text:
+                                    
+                                    # B) STABILITÄTS-CHECK: Hat sich der Text seit dem letzten Loop verändert?
+                                    if current_len == last_text_len:
+                                        # Text-Länge ist gleich geblieben -> KI hat aufgehört zu tippen.
+                                        
+                                        # C) Validierung: Ist es wirklich valides JSON?
+                                        parsed_json = extract_json_list(current_text)
+                                        if parsed_json is not None:
+                                            decisions = parsed_json
+                                            found_answer = True
+                                            print("   ✅ Antwort ist vollständig und stabil.")
+                                            break
+                                        else:
+                                            # Es könnte sein, dass noch Müll drumherum steht oder JSON kaputt ist
+                                            # Wir warten einfach weiter im nächsten Tick
+                                            pass
+                                    else:
+                                        # Text wird noch länger -> KI tippt gerade noch
+                                        last_text_len = current_len
+                                        # Optional: print(f"   ... schreibt noch ({current_len})...")
+                                else:
+                                    # Noch kein schließendes ']' oder zu kurz -> Speicher Länge trotzdem
+                                    last_text_len = current_len
+
+                        if found_answer:
+                            break # Raus aus der Retry-Schleife (attempt)
 
                 except Exception as e:
                     print(f"❌ KI Fehler (Generell): {e}")
@@ -310,7 +340,6 @@ async def run_bot_cycle():
                         await asyncio.sleep(3)
                     
                     elif typ == "SELL":
-                        # Suche nach Namensübereinstimmung
                         owned_stock = next((s for s in depot_data["stocks"] if name in s["name"] or s["name"] in name), None)
                         if owned_stock:
                             qty_to_sell = owned_stock["qty"]
