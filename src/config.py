@@ -1,8 +1,14 @@
 import os
 from dotenv import load_dotenv
 
-# Environment Variablen laden
-load_dotenv()
+# --- PATH CONFIGURATION ---
+# Get the directory where THIS file (config.py) is located (e.g., .../src)
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+# Go up one level to get the project root
+PROJECT_ROOT = os.path.dirname(SRC_DIR)
+
+# Load .env from Project Root
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 # Zugangsdaten
 MY_USERNAME = os.getenv("BOERSEN_EMAIL")
@@ -13,9 +19,12 @@ OON_LOGIN_URL = "https://www.oon-boersespiel.at/de/start.html?login=open"
 OON_DEPOT_URL = "https://www.oon-boersespiel.at/de/boersespiel.html#/personal/portfolio//detail/overview"
 AI_STUDIO_URL = "https://aistudio.google.com/app/prompts/new_chat"
 
-# Settings
-USER_DATA_DIR = "./google_session"
-LOG_DIR = "./logs"                # <--- NEU: Ordner für Logfiles
+# Settings (Using Absolute Paths)
+# These will now be created in the Project Root, not inside src
+USER_DATA_DIR = os.path.join(PROJECT_ROOT, "google_session")
+LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
+JSON_DIR = os.path.join(PROJECT_ROOT, "json")
+
 SUCCESS_WAIT_SECONDS = 5 * 60    # 10 Minuten
 ERROR_WAIT_SECONDS = 10           # 10 Sekunden
 

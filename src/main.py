@@ -3,9 +3,19 @@ import traceback
 import subprocess
 import sys
 import time
+import os
 from bot import run_bot_cycle
 from config import SUCCESS_WAIT_SECONDS, ERROR_WAIT_SECONDS
 import remote_manager
+
+# --- FIX FOR WINDOWS CONSOLE ENCODING ---
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+# ----------------------------------------
+
+# ... (Previous code like smart_sleep and main_loop remains exactly the same) ...
+# Copy the smart_sleep and main_loop functions from your original file here.
+# I will show the critical change in the "if __name__" block below:
 
 async def smart_sleep(seconds):
     """
@@ -13,22 +23,18 @@ async def smart_sleep(seconds):
     ob ein STOP-Befehl vom Dashboard vorliegt.
     """
     for i in range(seconds):
-        # 1. Prüfe Command
         cmd = remote_manager.get_command()
         if cmd == "stop":
             remote_manager.update_status("Pausiert", "Benutzer hat gestoppt (Wartezeit abgebrochen)")
             print("\n🛑 PAUSE DURCH BENUTZER ERKANNT.")
-            return False # Sleep abgebrochen
+            return False 
         
-        # 2. Status Update (Countdown)
-        # Wir aktualisieren den Status nur alle 10 Sekunden, um die Festplatte zu schonen
         remaining = seconds - i
         if i % 10 == 0: 
             remote_manager.update_status("Warten", f"Nächster Zyklus in {int(remaining/60)} min")
             
         await asyncio.sleep(1)
-    
-    return True # Sleep regulär beendet
+    return True 
 
 async def main_loop():
     print("🚀 SUPERVISOR GESTARTET")
@@ -36,7 +42,6 @@ async def main_loop():
     
     while True:
         try:
-            # --- SCHRITT A: PRÜFE OB GESTOPPT ---
             cmd = remote_manager.get_command()
             if cmd == "stop":
                 print("💤 Bot ist pausiert (Warte auf 'Start' via Dashboard)...")
@@ -44,20 +49,13 @@ async def main_loop():
                 await asyncio.sleep(5)
                 continue
 
-            # --- SCHRITT B: STARTE BOT ZYKLUS ---
-            # Status wird innerhalb von bot.py noch detaillierter gesetzt
             remote_manager.update_status("Aktiv", "Zyklus startet...")
-            
             await run_bot_cycle()
             
-            # --- SCHRITT C: WARTEZEIT (SMART SLEEP) ---
             print(f"💤 Alles glatt gelaufen. Schlafe {SUCCESS_WAIT_SECONDS/60} Minuten...")
-            
-            # Nutze Smart Sleep statt normalem sleep
             completed = await smart_sleep(SUCCESS_WAIT_SECONDS)
             
             if not completed:
-                # Wenn smart_sleep False zurückgibt, wurde gestoppt -> Schleife neu starten
                 continue
             
         except KeyboardInterrupt:
@@ -65,7 +63,6 @@ async def main_loop():
             break
             
         except Exception as e:
-            # Bei Crash (beliebiger Fehler)
             print("\n" + "!"*40)
             print(f"❌ KRITISCHER ABSTURZ: {e}")
             print("Traceback:")
@@ -79,32 +76,31 @@ async def main_loop():
 if __name__ == "__main__":
     dashboard_process = None
     
+    # Calculate the absolute path to dashboard.py inside the src folder
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    dashboard_script = os.path.join(current_dir, "dashboard.py")
+    
     try:
         print("🖥️ Starte Dashboard im Hintergrund...")
         # Startet Streamlit als separaten Prozess
-        # sys.executable garantiert, dass das gleiche Python (venv) genutzt wird
         dashboard_process = subprocess.Popen(
-    [
-        sys.executable, 
-        "-m", 
-        "streamlit", 
-        "run", 
-        "dashboard.py", 
-        "--browser.gatherUsageStats", "false",  # Überspringt die E-Mail/Statistik Abfrage
-        "--server.headless", "true"             # Verhindert, dass automatisch ein Browser am PC aufgeht
-    ]
-)
+            [
+                sys.executable, 
+                "-m", 
+                "streamlit", 
+                "run", 
+                dashboard_script,  # <--- UPDATED PATH
+                "--browser.gatherUsageStats", "false",
+                "--server.headless", "true"
+            ]
+        )
         
-        # Kurze Wartezeit, damit Streamlit hochfahren kann
         time.sleep(3)
-        
-        # Starte den Haupt-Loop
         asyncio.run(main_loop())
 
     except KeyboardInterrupt:
         print("\n👋 Beende Hauptprogramm...")
     finally:
-        # Aufräumen: Dashboard-Prozess beenden, wenn main.py beendet wird
         if dashboard_process:
             print("🛑 Beende Dashboard-Prozess...")
             dashboard_process.terminate()

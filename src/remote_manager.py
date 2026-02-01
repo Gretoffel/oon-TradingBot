@@ -1,17 +1,25 @@
-# remote_manager.py
 import json
 import os
 import time
+# Import the configured paths
+from config import JSON_DIR
 
-STATE_FILE = "bot_state.json"
-CONTROL_FILE = "bot_control.json"
+# Define paths inside the json folder
+STATE_FILE = os.path.join(JSON_DIR, "bot_state.json")
+CONTROL_FILE = os.path.join(JSON_DIR, "bot_control.json")
+
+def _ensure_json_dir():
+    """Helper to ensure json directory exists"""
+    if not os.path.exists(JSON_DIR):
+        os.makedirs(JSON_DIR)
 
 def update_status(phase, details="", balance=0.0):
     """Schreibt den aktuellen Status des Bots in eine Datei."""
+    _ensure_json_dir()
     data = {
         "timestamp": time.time(),
-        "phase": phase,          # z.B. "Login", "Analysiere", "Schlafe"
-        "details": details,      # z.B. "Kaufe Apple", "Warte 10min"
+        "phase": phase,
+        "details": details,
         "balance": balance,
         "is_alive": True
     }
@@ -34,6 +42,7 @@ def get_command():
 
 def set_command(command):
     """Wird vom Dashboard genutzt, um Befehle zu senden."""
+    _ensure_json_dir()
     with open(CONTROL_FILE, "w", encoding="utf-8") as f:
         json.dump({"command": command}, f)
 
