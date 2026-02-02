@@ -1,8 +1,9 @@
 import re
 import json
 import os
+import pandas as pd # Needed for DataFrame
 from datetime import datetime
-import config # Import config für LOG_DIR
+import config 
 
 def clean_amount(text):
     """Wandelt Text wie '1.200,50' in float um."""
@@ -63,19 +64,14 @@ def print_analysis_summary(decisions):
 def log_success(action, name, isin, amount, price, reason):
     """Schreibt erfolgreiche Aktionen in eine Tages-Logdatei."""
     try:
-        # Ordner erstellen, falls nicht existiert
         if not os.path.exists(config.LOG_DIR):
             os.makedirs(config.LOG_DIR)
         
-        # Dateiname: log_2026-01-29.txt
         today_str = datetime.now().strftime("%Y-%m-%d")
         filename = os.path.join(config.LOG_DIR, f"log_{today_str}.txt")
-        
-        # Zeitstempel für den Eintrag
         time_str = datetime.now().strftime("%H:%M:%S")
         
-        # Formatierung der Zeile
-        # Zeit | Action | Name | ISIN | Menge/Betrag | Kurs | Grund
+        # Consistent separator for easy parsing
         log_line = (
             f"[{time_str}] "
             f"ACTION: {action:<4} | "
@@ -94,9 +90,8 @@ def log_success(action, name, isin, amount, price, reason):
     except Exception as e:
         print(f"   ⚠️ Fehler beim Schreiben des Logs: {e}")
 
-
 def get_todays_log_content():
-    """Liest den Inhalt des heutigen Logfiles, falls vorhanden."""
+    """Liest den reinen Text-Inhalt des heutigen Logfiles (für KI)."""
     try:
         today_str = datetime.now().strftime("%Y-%m-%d")
         filename = os.path.join(config.LOG_DIR, f"log_{today_str}.txt")
@@ -108,3 +103,52 @@ def get_todays_log_content():
         return "Keine Transaktionen heute."
     except Exception as e:
         return f"Fehler beim Lesen des Logs: {e}"
+
+def get_todays_log_dataframe():
+    """Liest das Logfile und wandelt es in ein Pandas DataFrame um (für Dashboard)."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    filename = os.path.join(config.LOG_DIR, f"log_{today_str}.txt")
+    
+    if not os.path.exists(filename):
+        return pd.DataFrame()
+
+    data = []
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip(): continue
+                # Parse using regex matching the format in log_success
+                # Format: [Time] ACTION: ... | NAME: ... | ...
+                try:
+                    # Simple string splitting is more robust if separators are unique
+                    parts = line.split("|")
+                    
+                    # Extract Time and Action from first part
+                    first_part = parts[0].strip()
+                    time_val = first_part[1:9] # Extract HH:MM:SS
+                    action_val = first_part.split("ACTION:")[1].strip()
+                    
+                    name_val = parts[1].split("NAME:")[1].strip()
+                    isin_val = parts[2].split("ISIN:")[1].strip()
+                    qty_val = parts[3].split("QTY:")[1].strip()
+                    price_val = parts[4].split("PRICE_EST:")[1].strip()
+                    reason_val = parts[5].split("REASON:")[1].strip()
+                    
+                    data.append({
+                        "Uhrzeit": time_val,
+                        "Aktion": action_val,
+                        "Name": name_val,
+                        "ISIN": isin_val,
+                        "Menge": qty_val,
+                        "Kurs (ca.)": price_val,
+                        "Grund": reason_val
+                    })
+                except:
+                    continue # Skip malformed lines
+                    
+        return pd.DataFrame(data)
+    except Exception as e:
+        print(f"Error parsing log to DF: {e}")
+        return pd.DataFrame()
+    
+    

@@ -12,16 +12,30 @@ def _ensure_json_dir():
     if not os.path.exists(JSON_DIR):
         os.makedirs(JSON_DIR)
 
-def update_status(phase, details="", balance=0.0):
+# UPDATED: Added portfolio and open_orders to the arguments
+def update_status(phase, details="", balance=0.0, portfolio=None, open_orders=None):
     """Schreibt den aktuellen Status des Bots in eine Datei."""
     _ensure_json_dir()
+    
+    # Load existing state to preserve portfolio if not passed in this update
+    current_data = {}
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                current_data = json.load(f)
+        except: pass
+
     data = {
         "timestamp": time.time(),
         "phase": phase,
         "details": details,
         "balance": balance,
-        "is_alive": True
+        "is_alive": True,
+        # Use new data if provided, else keep old data, else empty list
+        "portfolio": portfolio if portfolio is not None else current_data.get("portfolio", []),
+        "open_orders": open_orders if open_orders is not None else current_data.get("open_orders", [])
     }
+    
     try:
         with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
@@ -45,12 +59,19 @@ def set_command(command):
 
 def get_state():
     if not os.path.exists(STATE_FILE):
-        return {"phase": "Offline", "details": "Warte auf Start...", "balance": 0, "timestamp": 0}
+        return {
+            "phase": "Offline", 
+            "details": "Warte auf Start...", 
+            "balance": 0, 
+            "timestamp": 0,
+            "portfolio": [],
+            "open_orders": []
+        }
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except:
-        return {"phase": "Fehler", "details": "Lesefehler", "balance": 0}
+        return {"phase": "Fehler", "details": "Lesefehler", "balance": 0, "portfolio": []}
 
 def get_live_logs(lines=50):
     """Liest die letzten N Zeilen des Live-Logs effizient aus."""
@@ -58,7 +79,6 @@ def get_live_logs(lines=50):
         return "Warte auf Log-Daten..."
     
     try:
-        # deque mit maxlen behält nur die letzten N Elemente
         with open(SESSION_LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
             last_lines = deque(f, maxlen=lines)
         return "".join(last_lines)
