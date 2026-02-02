@@ -34,7 +34,7 @@ REFRESH_RATE = 2
 state = remote_manager.get_state()
 command = remote_manager.get_command()
 live_logs = remote_manager.get_live_logs(lines=100)
-df_history = utils.get_todays_log_dataframe()
+# Historie-Datenabruf entfernt
 
 # Check connectivity
 last_update_delta = time.time() - state.get("timestamp", 0)
@@ -66,8 +66,8 @@ with col4:
 
 st.markdown("---")
 
-# 3. TABS
-tab1, tab2, tab3 = st.tabs(["📊 Mein Depot", "🖥️ Live Konsole", "📝 Historie (Heute)"])
+# 3. TABS (Reduziert auf 2 Tabs)
+tab1, tab2 = st.tabs(["📊 Mein Depot", "🖥️ Live Konsole"])
 
 # --- TAB 1: DEPOT ---
 with tab1:
@@ -93,7 +93,7 @@ with tab1:
             width="stretch",
             hide_index=True,
             column_config={
-                "Aktie": st.column_config.TextColumn("Aktie", width="large"), # <--- HIER DER FIX
+                "Aktie": st.column_config.TextColumn("Aktie", width="large"),
                 "Wert": st.column_config.NumberColumn("Wert (€)", format="%.2f €"),
                 "Stk.": st.column_config.NumberColumn("Stk.", format="%d"),
             }
@@ -130,27 +130,3 @@ with tab2:
     if st.checkbox("Auto-Refresh", value=True):
         time.sleep(REFRESH_RATE)
         st.rerun()
-
-# --- TAB 3: HISTORIE ---
-with tab3:
-    st.subheader("Transaktionen (Heute)")
-    if not df_history.empty:
-        # Färbung für BUY/SELL
-        def color_row(row):
-            color = 'rgba(0, 255, 0, 0.1)' if row['Aktion'] == 'BUY' else 'rgba(255, 0, 0, 0.1)'
-            return [f'background-color: {color}'] * len(row)
-
-        st.dataframe(
-            df_history.style.apply(color_row, axis=1),
-            width="stretch",
-            hide_index=True,
-            column_config={
-                "Name": st.column_config.TextColumn("Name", width="large"),
-                "Kurs": st.column_config.TextColumn("Kurs"), # Als Text lassen, falls "N/A"
-            }
-        )
-    else:
-        st.info("Log-Datei ist leer oder konnte nicht gelesen werden.")
-        st.caption("Hinweis: Alte Log-Formate werden ignoriert. Lösche ggf. 'logs/log_YYYY-MM-DD.txt' für einen sauberen Start.")
-    
-    if st.button("Historie neu laden"): st.rerun()

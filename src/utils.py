@@ -150,3 +150,5 @@ def get_todays_log_dataframe():
     except Exception as e:
         print(f"Error parsing log to DF: {e}")
         return pd.DataFrame()
+    
+    
