@@ -8,3 +8,4 @@ tempLogCopy.txt
 blackboard.txt
 backup/*
 json/*
+src/__pycache__/*
