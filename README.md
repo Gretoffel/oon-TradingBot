@@ -8,8 +8,9 @@ Analyzing market conditions using Google AI Studio with search capabilities
 Executing buy/sell orders automatically
 Tracking performance and maintaining transaction logs
 
-⚠️ Important: This is a research/educational project. See Known Issues & Limitations before deployment.
-Architecture
+> [!IMPORTANT] 
+> This is a research/educational project. See Known Issues & Limitations before deployment. 
+> Architecture
 
 
 - ✅ Automated Trading: Executes buy/sell orders based on AI analysis
@@ -24,7 +25,7 @@ Architecture
 
 - Python 3.8+
 - Google AI Studio account (free tier available)
-- Valid OÖN Börsenspiel account
+- Valid OÖN Stock Market Game account
 
 ## Installation
 
@@ -73,7 +74,9 @@ The bot will automatically:
 **Do not close the opened browser windows manually**, as the bot needs them to interact with the sites.
 
 ### Web Dashboard
-Note: It is recommended to use ngrok in order to remotely access the dashboard.
+
+> [!Note] 
+> It is recommended to use ngrok in order to remotely access the dashboard.
 
 The included Streamlit dashboard provides a real-time interface to:
 - Monitor the bot's current status (Active, Sleeping, Error)
@@ -102,7 +105,7 @@ TEST_ORDERS = [
 Then run python main.py to test order execution without AI calls.
 
 ## Stopping the Bot
-Press CTRL+C to gracefully shut down.
+> Press CTRL+C to gracefully shut down.
 
 ## Configuration
 Key settings in config.py:
@@ -130,4 +133,5 @@ Each entry contains:
 - AI reasoning
 
 ## License
-This Project is under the `GNU General Public License version 2.0`, see LICENSE File for more information
+This Project is under the `GNU General Public License version 2.0`, 
+see LICENSE File for more information
