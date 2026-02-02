@@ -5,17 +5,39 @@ import sys
 import time
 import os
 from bot import run_bot_cycle
-from config import SUCCESS_WAIT_SECONDS, ERROR_WAIT_SECONDS
+from config import SUCCESS_WAIT_SECONDS, ERROR_WAIT_SECONDS, SESSION_LOG_FILE, LOG_DIR
 import remote_manager
 
-# --- FIX FOR WINDOWS CONSOLE ENCODING ---
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
-# ----------------------------------------
+# --- LOGGER SETUP ---
+class DualLogger:
+    """
+    Schreibt stdout/stderr sowohl in das Terminal als auch in eine Datei,
+    damit das Dashboard die 'print'-Ausgaben live mitlesen kann.
+    """
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.filename = filename
+        # Datei leeren beim Start
+        if not os.path.exists(os.path.dirname(filename)):
+            os.makedirs(os.path.dirname(filename))
+        with open(self.filename, 'w', encoding='utf-8') as f:
+            f.write(f"--- LOG START: {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
 
-# ... (Previous code like smart_sleep and main_loop remains exactly the same) ...
-# Copy the smart_sleep and main_loop functions from your original file here.
-# I will show the critical change in the "if __name__" block below:
+    def write(self, message):
+        try:
+            self.terminal.write(message)
+            with open(self.filename, "a", encoding="utf-8") as log:
+                log.write(message)
+        except Exception:
+            pass # Fallback, falls Logging crasht
+
+    def flush(self):
+        self.terminal.flush()
+
+# Redirect Output
+sys.stdout = DualLogger(SESSION_LOG_FILE)
+sys.stderr = sys.stdout 
+# --------------------
 
 async def smart_sleep(seconds):
     """
@@ -76,7 +98,6 @@ async def main_loop():
 if __name__ == "__main__":
     dashboard_process = None
     
-    # Calculate the absolute path to dashboard.py inside the src folder
     current_dir = os.path.dirname(os.path.abspath(__file__))
     dashboard_script = os.path.join(current_dir, "dashboard.py")
     
@@ -89,9 +110,10 @@ if __name__ == "__main__":
                 "-m", 
                 "streamlit", 
                 "run", 
-                dashboard_script,  # <--- UPDATED PATH
+                dashboard_script, 
                 "--browser.gatherUsageStats", "false",
-                "--server.headless", "true"
+                "--server.headless", "true",
+                "--theme.base", "dark" 
             ]
         )
         

@@ -15,7 +15,6 @@ async def check_soft_crash(page):
     Gibt True zurück, wenn ein Crash erkannt und ein Reload angestoßen wurde.
     """
     try:
-        # Check 1: Titel (wirft Exception, wenn Target crashed/disconnected ist)
         title = await page.title()
         if "Aw, Snap!" in title:
             print("🚨 SOFT CRASH DETECTED (Title). Versuche Reload...")
@@ -24,8 +23,6 @@ async def check_soft_crash(page):
             await asyncio.sleep(4)
             return True
 
-        # Check 2: Visuelles Element im DOM
-        # Wir nutzen ein kurzes Timeout, damit wir hier nicht unnötig blockieren
         try:
             crash_header = page.locator("h1").filter(has_text="Aw, Snap!")
             if await crash_header.count() > 0 and await crash_header.first.is_visible():
@@ -35,11 +32,9 @@ async def check_soft_crash(page):
                 await asyncio.sleep(4)
                 return True
         except:
-            pass # Element-Check kann fehlschlagen, wenn Seite tot ist -> Exception wird unten gefangen
+            pass 
             
     except Exception as e:
-        # Wenn hier ein Fehler auftritt (z.B. "Target closed"), werfen wir ihn,
-        # damit die Hauptschleife den Tab komplett neu erstellt.
         raise e 
             
     return False
@@ -49,9 +44,7 @@ async def run_bot_cycle():
     print("\n" + "="*40)
     print("🤖 TRADING BOT ZYKLUS STARTET")
     
-    # --- STATUS UPDATE: START ---
     remote_manager.update_status("Start", "Initialisiere Browser...", balance=0.0)
-    # ----------------------------
 
     if config.TEST_MODE:
         print("⚠️  ACHTUNG: TEST-MODUS AKTIV (Keine KI)")
@@ -68,7 +61,6 @@ async def run_bot_cycle():
         current_cash = 0.0
 
         try:
-            # Wir definieren page hier, damit wir sie bei einem Crash ersetzen können
             page = context.pages[0] if context.pages else await context.new_page()
 
             # 1. LOGIN
@@ -167,9 +159,7 @@ async def run_bot_cycle():
                 print(f"⚠️ Scan Fehler (Offene Aufträge): {e}")
 
 
-            # ---------------------------------------------------------
             # 3. ENTSCHEIDUNG (KI ODER TEST)
-            # ---------------------------------------------------------
             decisions = []
             remote_manager.update_status("KI", "Frage KI nach Strategie...", balance=current_cash)
 
@@ -230,70 +220,47 @@ async def run_bot_cycle():
                     print(f"   🔄 KI-Zyklus Versuch {attempt+1}/{max_ai_retries}...")
                     
                     try:
-                        # 1. HARD CRASH PROTECTION VORHER
                         if page.is_closed():
                             print("   ♻️ Seite war geschlossen. Erstelle neu...")
                             page = await context.new_page()
 
-                        # 2. Navigation
                         if page.url != config.AI_STUDIO_URL:
                             await page.goto(config.AI_STUDIO_URL)
                             await asyncio.sleep(4)
                         
-                        # 3. Soft Crash Check (Vorher)
-                        # Wenn hier ein Crash erkannt wird (und reloadet wurde),
-                        # starten wir den Loop von vorne, um den Prompt sicher einzugeben.
                         if await check_soft_crash(page):
                             print("   ⚠️ Crash beim Start erkannt -> Neustart des Versuchs.")
                             continue
 
-                        # 4. Input Prompt
                         await page.wait_for_selector("div[contenteditable='true'], textarea", timeout=8000)
                         await page.fill("div[contenteditable='true'], textarea", prompt)
                         
-                        # Run Button
                         run_btn = page.locator(".run-button-label", has_text="Run")
                         if await run_btn.count() > 0: await run_btn.click()
                         else: await page.keyboard.press("Control+Enter")
 
                         print("⏳ Recherche läuft...")
 
-                        # --- AUTO-SCROLL FIX FOR AI STUDIO ---
-                        # Wir scrollen explizit das mittlere Container-Element (.chat-session-content),
-                        # damit der neue Inhalt geladen/sichtbar wird.
                         try:
-                            # Wir nehmen das letzte Element, falls mehrere existieren (Haupt-Chat-Fenster)
                             chat_container = page.locator(".chat-session-content").last
                             if await chat_container.count() > 0:
-                                # 1. Hover, um dem Browser zu signalisieren, wo die "User-Maus" ist
                                 await chat_container.hover()
                                 await asyncio.sleep(0.5)
-                                
-                                # 2. Mausrad simulieren (User Input) - massives Scrollen nach unten
                                 await page.mouse.wheel(0, 15000)
-                                
-                                # 3. Fallback: JS Scroll, um sicherzustellen, dass wir wirklich unten sind
-                                # (Falls das Mausrad eventuell vom Framework ignoriert wird)
                                 await chat_container.evaluate("el => el.scrollTop = el.scrollHeight")
                         except Exception as s_err:
                             print(f"   ⚠️ Scroll-Warnung: {s_err}")
-                        # -------------------------------------
 
-                        # 5. Polling Loop
                         found_answer = False
                         last_text_len = 0 
                         
                         for poll_tick in range(15): 
                             await asyncio.sleep(4) 
                             
-                            # --- CRITICAL: Soft Check IN DER SCHLEIFE ---
-                            # Wenn Aw Snap hier passiert, ist der Prompt weg (wegen Reload).
-                            # Wir müssen aus dem Polling Loop ausbrechen und den Versuch neu starten.
                             if await check_soft_crash(page):
                                 print("⚠️ Soft Crash beim Warten. Breche Polling ab und versuche neu...")
-                                break # Bricht Polling ab -> nächster Versuch im `attempt` Loop
+                                break 
 
-                            # Google Error (Rerun Handling)
                             error_locator = page.locator(".model-error")
                             if await error_locator.count() > 0 and await error_locator.last.is_visible():
                                 print("\n⚠️ Google AI Error. Versuche Rerun...")
@@ -302,22 +269,27 @@ async def run_bot_cycle():
                                     rerun_btns = page.locator("button[aria-label='Rerun this turn']")
                                     if await rerun_btns.count() > 0:
                                         await rerun_btns.last.click()
-                                        # Nach Rerun direkt weiter warten, kein Break
                                         continue
                                     else:
-                                        # Kein Rerun Button -> Reload nötig
                                         await page.reload()
-                                        break # Nächster Versuch
+                                        break 
                                 except: 
-                                    break # Fehler beim Handling -> Nächster Versuch
+                                    break 
 
-                            # Antwort lesen
                             ans_locator = page.locator('div[data-turn-role="Model"]').last
                             if await ans_locator.count() > 0:
                                 current_text = await ans_locator.inner_text()
                                 
                                 if len(current_text) >= 2 and "]" in current_text:
                                     if len(current_text) == last_text_len:
+                                        # --- NEW: PRINT RAW AI OUTPUT ---
+                                        print("\n" + "-"*30)
+                                        print("📝 EXACT AI OUTPUT RECEIVED:")
+                                        print("-" * 30)
+                                        print(current_text)
+                                        print("-" * 30 + "\n")
+                                        # --------------------------------
+                                        
                                         parsed_json = extract_json_list(current_text)
                                         if parsed_json is not None:
                                             decisions = parsed_json
@@ -335,7 +307,6 @@ async def run_bot_cycle():
                         error_msg = str(e).lower()
                         print(f"❌ Fehler im KI-Zyklus: {e}")
                         
-                        # --- HARD CRASH RECOVERY ---
                         if "crashed" in error_msg or "closed" in error_msg or "target" in error_msg:
                             print("\n🛑 FATALER BROWSER FEHLER (Target crashed).")
                             print("♻️  ERSTELLE NEUEN TAB UND STARTE NEU...\n")
@@ -359,7 +330,6 @@ async def run_bot_cycle():
                 print("\n" + "⚡ EXECUTION PHASE".center(40, "="))
                 remote_manager.update_status("Trading", f"Verarbeite {len(decisions)} Signale...", balance=current_cash)
 
-                # Sicherstellen, dass Page okay ist
                 if page.is_closed(): page = await context.new_page()
 
                 if page.url != config.OON_DEPOT_URL:

@@ -2,15 +2,13 @@ import os
 from dotenv import load_dotenv
 
 # --- PATH CONFIGURATION ---
-# Get the directory where THIS file (config.py) is located (e.g., .../src)
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
-# Go up one level to get the project root
 PROJECT_ROOT = os.path.dirname(SRC_DIR)
 
-# Load .env from Project Root
+# Load .env
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
-# Zugangsdaten
+# Credentials
 MY_USERNAME = os.getenv("BOERSEN_EMAIL")
 MY_PASSWORD = os.getenv("BOERSEN_PASSWORD")
 
@@ -19,16 +17,18 @@ OON_LOGIN_URL = "https://www.oon-boersespiel.at/de/start.html?login=open"
 OON_DEPOT_URL = "https://www.oon-boersespiel.at/de/boersespiel.html#/personal/portfolio//detail/overview"
 AI_STUDIO_URL = "https://aistudio.google.com/app/prompts/new_chat"
 
-# Settings (Using Absolute Paths)
-# These will now be created in the Project Root, not inside src
+# Settings
 USER_DATA_DIR = os.path.join(PROJECT_ROOT, "google_session")
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 JSON_DIR = os.path.join(PROJECT_ROOT, "json")
 
-SUCCESS_WAIT_SECONDS = 15 * 60    # 5 Minuten
-ERROR_WAIT_SECONDS = 10           # 10 Sekunden
+# NEW: File to store live console output for the dashboard
+SESSION_LOG_FILE = os.path.join(LOG_DIR, "session_live.log")
 
-# --- TEST MODUS KONFIGURATION ---
+SUCCESS_WAIT_SECONDS = 15 * 60    
+ERROR_WAIT_SECONDS = 10           
+
+# --- TEST MODE ---
 TEST_MODE = False  
 
 TEST_ORDERS = [

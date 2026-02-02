@@ -1,15 +1,14 @@
 import json
 import os
 import time
-# Import the configured paths
-from config import JSON_DIR
+from collections import deque
+from config import JSON_DIR, SESSION_LOG_FILE
 
 # Define paths inside the json folder
 STATE_FILE = os.path.join(JSON_DIR, "bot_state.json")
 CONTROL_FILE = os.path.join(JSON_DIR, "bot_control.json")
 
 def _ensure_json_dir():
-    """Helper to ensure json directory exists"""
     if not os.path.exists(JSON_DIR):
         os.makedirs(JSON_DIR)
 
@@ -30,7 +29,6 @@ def update_status(phase, details="", balance=0.0):
         print(f"⚠️ Remote Fehler (Write): {e}")
 
 def get_command():
-    """Liest Befehle vom Dashboard (run/stop)."""
     if not os.path.exists(CONTROL_FILE):
         return "run"
     try:
@@ -41,17 +39,28 @@ def get_command():
         return "run"
 
 def set_command(command):
-    """Wird vom Dashboard genutzt, um Befehle zu senden."""
     _ensure_json_dir()
     with open(CONTROL_FILE, "w", encoding="utf-8") as f:
         json.dump({"command": command}, f)
 
 def get_state():
-    """Wird vom Dashboard genutzt, um den Status zu lesen."""
     if not os.path.exists(STATE_FILE):
-        return {"phase": "Offline", "details": "Keine Daten", "balance": 0, "timestamp": 0}
+        return {"phase": "Offline", "details": "Warte auf Start...", "balance": 0, "timestamp": 0}
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except:
         return {"phase": "Fehler", "details": "Lesefehler", "balance": 0}
+
+def get_live_logs(lines=50):
+    """Liest die letzten N Zeilen des Live-Logs effizient aus."""
+    if not os.path.exists(SESSION_LOG_FILE):
+        return "Warte auf Log-Daten..."
+    
+    try:
+        # deque mit maxlen behält nur die letzten N Elemente
+        with open(SESSION_LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
+            last_lines = deque(f, maxlen=lines)
+        return "".join(last_lines)
+    except Exception as e:
+        return f"Fehler beim Lesen des Logs: {e}"
