@@ -25,7 +25,7 @@ USER_DATA_DIR = os.path.join(PROJECT_ROOT, "google_session")
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 JSON_DIR = os.path.join(PROJECT_ROOT, "json")
 
-SUCCESS_WAIT_SECONDS = 5 * 60    # 10 Minuten
+SUCCESS_WAIT_SECONDS = 15 * 60    # 5 Minuten
 ERROR_WAIT_SECONDS = 10           # 10 Sekunden
 
 # --- TEST MODUS KONFIGURATION ---

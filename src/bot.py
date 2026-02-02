@@ -258,6 +258,27 @@ async def run_bot_cycle():
 
                         print("⏳ Recherche läuft...")
 
+                        # --- AUTO-SCROLL FIX FOR AI STUDIO ---
+                        # Wir scrollen explizit das mittlere Container-Element (.chat-session-content),
+                        # damit der neue Inhalt geladen/sichtbar wird.
+                        try:
+                            # Wir nehmen das letzte Element, falls mehrere existieren (Haupt-Chat-Fenster)
+                            chat_container = page.locator(".chat-session-content").last
+                            if await chat_container.count() > 0:
+                                # 1. Hover, um dem Browser zu signalisieren, wo die "User-Maus" ist
+                                await chat_container.hover()
+                                await asyncio.sleep(0.5)
+                                
+                                # 2. Mausrad simulieren (User Input) - massives Scrollen nach unten
+                                await page.mouse.wheel(0, 15000)
+                                
+                                # 3. Fallback: JS Scroll, um sicherzustellen, dass wir wirklich unten sind
+                                # (Falls das Mausrad eventuell vom Framework ignoriert wird)
+                                await chat_container.evaluate("el => el.scrollTop = el.scrollHeight")
+                        except Exception as s_err:
+                            print(f"   ⚠️ Scroll-Warnung: {s_err}")
+                        # -------------------------------------
+
                         # 5. Polling Loop
                         found_answer = False
                         last_text_len = 0 
