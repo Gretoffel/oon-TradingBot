@@ -127,6 +127,8 @@ async def run_bot_cycle():
             
             current_cash = depot_data["cash"]
             print(f"💰 Verfügbares Cash (laut Anzeige): {current_cash} €")
+            
+            # --- STATUS UPDATE: Scanning ---
             remote_manager.update_status("Scan", "Analysiere Positionen...", balance=current_cash)
 
             # B) Bestand
@@ -186,6 +188,15 @@ async def run_bot_cycle():
             except Exception as e:
                 print(f"⚠️ Scan Fehler (Offene Aufträge): {e}")
 
+            # --- UPDATED: Save Portfolio to JSON for Dashboard ---
+            remote_manager.update_status(
+                "Scan", 
+                "Depot-Daten gespeichert.", 
+                balance=current_cash,
+                portfolio=depot_data["stocks"],
+                open_orders=depot_data["open_orders"]
+            )
+            # -----------------------------------------------------
 
             # 3. ENTSCHEIDUNG (KI ODER TEST)
             decisions = []
