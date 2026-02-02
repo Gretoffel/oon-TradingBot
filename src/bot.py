@@ -171,6 +171,19 @@ async def run_bot_cycle():
                 todays_logs = get_todays_log_content()
                 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
+                # Strategie-Datei lesen
+                strategy_file = os.path.join(PROJECT_ROOT, "src", "strategy.txt")
+                user_strategy = ""
+                if os.path.exists(strategy_file):
+                    try:
+                        with open(strategy_file, "r", encoding="utf-8") as f:
+                            content = f.read().strip()
+                            if content:
+                                user_strategy = f"\n\nUSER INSTRUCTIONS (VERY IMPORTANT):\n{content}\n"
+                                print(f"   📜 Strategie-Update geladen: {content[:50]}...")
+                    except Exception as e:
+                        print(f"⚠️ Konnte Strategie nicht lesen: {e}")
+
                 prompt = f"""
                 Zeit: {current_time} CET. 
                 
@@ -185,7 +198,7 @@ async def run_bot_cycle():
                 
                 MEINE OFFENEN AUFTRÄGE (Warten auf Ausführung):
                 {json.dumps(depot_data['open_orders'])}
-                
+                {user_strategy}
                 AUFGABE:
                 1. Analysiere mein Depot und offene Aufträge.
                 2. Ziehe vom Cash gedanklich ab, was für die offenen "BUY"-Aufträge nötig ist (Schätze den Betrag).
@@ -232,7 +245,17 @@ async def run_bot_cycle():
                             print("   ⚠️ Crash beim Start erkannt -> Neustart des Versuchs.")
                             continue
 
-                        await page.wait_for_selector("div[contenteditable='true'], textarea", timeout=8000)
+                        # Check ob wir auf der Login-Seite sind
+                        if "accounts.google.com" in page.url or "signin" in page.url:
+                            print("\n🔑 Google Login erforderlich. Bitte manuell einloggen!")
+                            print("   ⏳ Der Bot wartet nun BIS ZU 1 STUNDE, bis die Anmeldung abgeschlossen ist...")
+                            # 59 Minuten und 59 Sekunden Timeout (3599000 ms)
+                            # wait_for_selector kehrt zurück, sobald das Element da ist (Login fertig)
+                            await page.wait_for_selector("div[contenteditable='true'], textarea", state="visible", timeout=3599000)
+                            print("   ✅ Anmeldung erkannt! Fahre fort...")
+                        else:
+                            # Normaler kurzer Wait
+                            await page.wait_for_selector("div[contenteditable='true'], textarea", state="visible", timeout=8000)
                         await page.fill("div[contenteditable='true'], textarea", prompt)
                         
                         run_btn = page.locator(".run-button-label", has_text="Run")
