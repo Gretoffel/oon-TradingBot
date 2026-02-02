@@ -72,12 +72,40 @@ async def run_bot_cycle():
                 except: pass
 
                 if await page.is_visible("#usernameid"):
-                    await page.fill("#usernameid", config.MY_USERNAME)
-                    await page.fill("#passwordid", config.MY_PASSWORD)
-                    await page.keyboard.press("Enter")
-                    await asyncio.sleep(5)
+                    if config.MANUAL_LOGIN_MODE:
+                        print("⏳ MANUAL LOGIN MODE: Warte auf manuellen Login im Browser...")
+                        remote_manager.update_status("Warten", "Bitte jetzt IM BROWSER einloggen!")
+                        
+                        # Warte-Schleife bis Login-Feld weg ist
+                        while True:
+                            try:
+                                if not await page.is_visible("#usernameid"):
+                                    break
+                            except Exception:
+                                print("\n⚠️ Browser scheint geschlossen worden zu sein.")
+                                break
+                            await asyncio.sleep(2)
+                            
+                        if page.is_closed():
+                            print("❌ Browser wurde geschlossen. Beende Zyklus.")
+                            return
+
+                        print("✅ Manueller Login erkannt (oder Browser weg).")
+                        remote_manager.update_status("Login", "Login Check fertig.")
+                        await asyncio.sleep(3)
+                        
+                    else:
+                        # Auto-Login Logic
+                        await page.fill("#usernameid", config.MY_USERNAME)
+                        await page.fill("#passwordid", config.MY_PASSWORD)
+                        await page.keyboard.press("Enter")
+                        await asyncio.sleep(5)
             except Exception as e:
                 print(f"⚠️ Login-Check übersprungen oder Fehler: {e}")
+                
+            if page.is_closed():
+                print("❌ Browser nicht mehr verfügbar. Beende Zyklus.")
+                return
 
             # 2. SCANNING
             remote_manager.update_status("Scan", "Lese Depot und Cash aus...")
@@ -232,7 +260,33 @@ async def run_bot_cycle():
                             print("   ⚠️ Crash beim Start erkannt -> Neustart des Versuchs.")
                             continue
 
-                        await page.wait_for_selector("div[contenteditable='true'], textarea", timeout=8000)
+                        try:
+                            await page.wait_for_selector("div[contenteditable='true'], textarea", timeout=8000)
+                        except:
+                            if config.MANUAL_LOGIN_MODE:
+                                print("⚠️ Google AI Studio Input nicht gefunden.")
+                                print("⏳ MANUAL LOGIN MODE: Warte auf Google Login / Seite laden...")
+                                remote_manager.update_status("Warten", "Bitte Google-Login prüfen!")
+                                
+                                # Warte bis Input da ist
+                                while True:
+                                    try:
+                                        if await page.locator("div[contenteditable='true'], textarea").count() > 0:
+                                            if await page.locator("div[contenteditable='true'], textarea").first.is_visible():
+                                                break
+                                    except:
+                                        if page.is_closed(): break
+                                    
+                                    await asyncio.sleep(2)
+                                    if page.is_closed(): break
+                                
+                                if page.is_closed():
+                                    print("❌ Browser geschlossen.")
+                                    return
+                                    
+                                print("✅ Google AI Studio geladen!")
+                            else:
+                                raise # Re-raise error if not in manual mode
                         await page.fill("div[contenteditable='true'], textarea", prompt)
                         
                         run_btn = page.locator(".run-button-label", has_text="Run")

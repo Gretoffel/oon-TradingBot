@@ -29,7 +29,9 @@ SUCCESS_WAIT_SECONDS = 15 * 60
 ERROR_WAIT_SECONDS = 10           
 
 # --- TEST MODE ---
-TEST_MODE = False  
+TEST_MODE = False
+MANUAL_LOGIN_MODE = True  # Set to False to use auto-login with email/password
+  
 
 TEST_ORDERS = [
     {
