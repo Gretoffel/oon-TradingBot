@@ -87,7 +87,7 @@ with tab1:
 
         st.dataframe(
             df_portfolio, 
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Aktie": st.column_config.TextColumn("Aktie", width="large"),
@@ -109,7 +109,7 @@ with tab1:
             
             st.dataframe(
                 df_orders, 
-                use_container_width=True, 
+                width="stretch", 
                 hide_index=True,
                 column_config={
                     "Name": st.column_config.TextColumn("Name", width="medium"),
@@ -128,7 +128,7 @@ with tab2:
         
         st.dataframe(
             df_hist,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Datum": st.column_config.TextColumn("Datum", width="small"),
