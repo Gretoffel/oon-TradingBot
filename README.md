@@ -8,7 +8,7 @@ Analyzing market conditions using Google AI Studio with search capabilities
 Executing buy/sell orders automatically
 Tracking performance and maintaining transaction logs
 
-> [IMPORTANT] 
+> [!IMPORTANT] 
 > This is a research/educational project. See Known Issues & Limitations before deployment. 
 > Architecture
 
@@ -75,7 +75,7 @@ The bot will automatically:
 
 ### Web Dashboard
 
-> [Note] 
+> [!Note] 
 > It is recommended to use ngrok in order to remotely access the dashboard.
 
 The included Streamlit dashboard provides a real-time interface to:
