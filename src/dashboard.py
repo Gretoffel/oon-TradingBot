@@ -34,7 +34,6 @@ REFRESH_RATE = 2
 state = remote_manager.get_state()
 command = remote_manager.get_command()
 live_logs = remote_manager.get_live_logs(lines=100)
-# Historie-Datenabruf entfernt
 
 # Check connectivity
 last_update_delta = time.time() - state.get("timestamp", 0)
@@ -66,8 +65,8 @@ with col4:
 
 st.markdown("---")
 
-# 3. TABS (Reduziert auf 2 Tabs)
-tab1, tab2 = st.tabs(["📊 Mein Depot", "🖥️ Live Konsole"])
+# 3. TABS (Jetzt 3 Tabs)
+tab1, tab2, tab3 = st.tabs(["📊 Mein Depot", "📜 Verlauf", "🖥️ Live Konsole"])
 
 # --- TAB 1: DEPOT ---
 with tab1:
@@ -77,20 +76,18 @@ with tab1:
     if portfolio_data:
         df_portfolio = pd.DataFrame(portfolio_data)
         
-        # Mapping und Konfiguration
         rename_map = {
             "name": "Aktie", 
             "qty": "Stk.", 
             "value_eur": "Wert", 
             "performance_since_buy": "Perf."
         }
-        # Nur Spalten behalten, die wir wirklich haben
         existing_cols = [c for c in rename_map.keys() if c in df_portfolio.columns]
         df_portfolio = df_portfolio[existing_cols].rename(columns=rename_map)
 
         st.dataframe(
             df_portfolio, 
-            width="stretch",
+            use_container_width=True,
             hide_index=True,
             column_config={
                 "Aktie": st.column_config.TextColumn("Aktie", width="large"),
@@ -105,7 +102,6 @@ with tab1:
     orders_data = state.get("open_orders", [])
     if orders_data:
         df_orders = pd.DataFrame(orders_data)
-        # Spalten aufräumen
         if not df_orders.empty:
             cols_to_show = ["type", "qty", "name", "status"]
             df_orders = df_orders[[c for c in cols_to_show if c in df_orders.columns]]
@@ -113,7 +109,7 @@ with tab1:
             
             st.dataframe(
                 df_orders, 
-                width="stretch", 
+                use_container_width=True, 
                 hide_index=True,
                 column_config={
                     "Name": st.column_config.TextColumn("Name", width="medium"),
@@ -122,8 +118,34 @@ with tab1:
     else:
         st.caption("Keine offenen Aufträge.")
 
-# --- TAB 2: KONSOLE ---
+# --- TAB 2: VERLAUF (NEU) ---
 with tab2:
+    st.subheader("Transaktions-Historie")
+    history_data = utils.get_transaction_history()
+    
+    if history_data:
+        df_hist = pd.DataFrame(history_data)
+        
+        st.dataframe(
+            df_hist,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Datum": st.column_config.TextColumn("Datum", width="small"),
+                "Zeit": st.column_config.TextColumn("Zeit", width="small"),
+                "Aktion": st.column_config.TextColumn("Aktion", width="small"),
+                "Name": st.column_config.TextColumn("Name", width="medium"),
+                "Menge": st.column_config.NumberColumn("Stk."),
+                "Preis": st.column_config.NumberColumn("Kurs (€)", format="%.2f €"),
+                "Grund": st.column_config.TextColumn("KI Begründung", width="large"),
+                "ISIN": st.column_config.TextColumn("ISIN", width="small"),
+            }
+        )
+    else:
+        st.info("Noch keine Transaktionen in den Logs gefunden.")
+
+# --- TAB 3: KONSOLE ---
+with tab3:
     st.caption("Live Output (stdout)")
     st.markdown(f'<div class="console-box">{live_logs}</div>', unsafe_allow_html=True)
     if st.button("Refresh Log"): st.rerun()

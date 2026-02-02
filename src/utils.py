@@ -1,14 +1,15 @@
 import re
 import json
 import os
-import pandas as pd # Needed for DataFrame
+import glob # <--- NEU
+import pandas as pd
 from datetime import datetime
 import config 
 
 def clean_amount(text):
     """Wandelt Text wie '1.200,50' in float um."""
     if not text: return 0.0
-    cleaned = re.sub(r'[^\d,.-]', '', text)
+    cleaned = re.sub(r'[^\d,.-]', '', str(text)) # str() cast für Sicherheit
     if "," in cleaned and "." in cleaned:
         cleaned = cleaned.replace('.', '')
     cleaned = cleaned.replace(',', '.')
@@ -77,8 +78,8 @@ def log_success(action, name, isin, amount, price, reason):
             f"ACTION: {action:<4} | "
             f"NAME: {name:<20} | "
             f"ISIN: {isin:<12} | "
-            f"QTY: {amount:<5} | "
-            f"PRICE_EST: {price:<8} | "
+            f"QTY: {str(amount):<5} | "
+            f"PRICE_EST: {str(price):<8} | "
             f"REASON: {reason}\n"
         )
         
@@ -104,51 +105,66 @@ def get_todays_log_content():
     except Exception as e:
         return f"Fehler beim Lesen des Logs: {e}"
 
-def get_todays_log_dataframe():
-    """Liest das Logfile und wandelt es in ein Pandas DataFrame um (für Dashboard)."""
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    filename = os.path.join(config.LOG_DIR, f"log_{today_str}.txt")
+# --- NEU: HISTORY PARSER ---
+def get_transaction_history():
+    """Liest alle Log-Dateien und parst die Transaktionen in eine Liste."""
+    history = []
     
-    if not os.path.exists(filename):
-        return pd.DataFrame()
+    if not os.path.exists(config.LOG_DIR):
+        return history
 
-    data = []
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            for line in f:
-                if not line.strip(): continue
-                # Parse using regex matching the format in log_success
-                # Format: [Time] ACTION: ... | NAME: ... | ...
-                try:
-                    # Simple string splitting is more robust if separators are unique
-                    parts = line.split("|")
-                    
-                    # Extract Time and Action from first part
-                    first_part = parts[0].strip()
-                    time_val = first_part[1:9] # Extract HH:MM:SS
-                    action_val = first_part.split("ACTION:")[1].strip()
-                    
-                    name_val = parts[1].split("NAME:")[1].strip()
-                    isin_val = parts[2].split("ISIN:")[1].strip()
-                    qty_val = parts[3].split("QTY:")[1].strip()
-                    price_val = parts[4].split("PRICE_EST:")[1].strip()
-                    reason_val = parts[5].split("REASON:")[1].strip()
-                    
-                    data.append({
-                        "Uhrzeit": time_val,
-                        "Aktion": action_val,
-                        "Name": name_val,
-                        "ISIN": isin_val,
-                        "Menge": qty_val,
-                        "Kurs (ca.)": price_val,
-                        "Grund": reason_val
-                    })
-                except:
-                    continue # Skip malformed lines
-                    
-        return pd.DataFrame(data)
-    except Exception as e:
-        print(f"Error parsing log to DF: {e}")
-        return pd.DataFrame()
-    
-    
+    # Alle log_YYYY-MM-DD.txt Dateien finden, neueste zuerst
+    files = sorted(glob.glob(os.path.join(config.LOG_DIR, "log_*.txt")), reverse=True)
+
+    for filepath in files:
+        try:
+            filename = os.path.basename(filepath)
+            # Datum aus Dateiname extrahieren (log_2024-05-20.txt -> 2024-05-20)
+            date_part = filename.replace("log_", "").replace(".txt", "")
+            
+            with open(filepath, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            
+            # Zeilen rückwärts lesen (Neueste Aktion oben)
+            for line in reversed(lines):
+                if "ACTION:" not in line: continue
+                
+                parts = line.split("|")
+                if not parts: continue
+
+                # Teil 0: "[12:00:00] ACTION: BUY"
+                part0 = parts[0].strip()
+                time_match = re.search(r'\[(.*?)\]', part0)
+                time_str = time_match.group(1) if time_match else "00:00:00"
+                
+                action = "UNKNOWN"
+                if "ACTION:" in part0:
+                    action = part0.split("ACTION:")[1].strip()
+                
+                entry = {
+                    "Datum": date_part,
+                    "Zeit": time_str,
+                    "Aktion": action,
+                    "Name": "N/A",
+                    "ISIN": "N/A",
+                    "Menge": 0,
+                    "Preis": 0.0,
+                    "Grund": ""
+                }
+
+                # Restliche Teile parsen
+                for p in parts[1:]:
+                    p = p.strip()
+                    if p.startswith("NAME:"): entry["Name"] = p.replace("NAME:", "").strip()
+                    elif p.startswith("ISIN:"): entry["ISIN"] = p.replace("ISIN:", "").strip()
+                    elif p.startswith("QTY:"): entry["Menge"] = clean_amount(p.replace("QTY:", ""))
+                    elif p.startswith("PRICE_EST:"): entry["Preis"] = clean_amount(p.replace("PRICE_EST:", ""))
+                    elif p.startswith("REASON:"): entry["Grund"] = p.replace("REASON:", "").strip()
+                
+                history.append(entry)
+
+        except Exception as e:
+            print(f"Fehler beim Parsen von {filepath}: {e}")
+            continue
+            
+    return history
