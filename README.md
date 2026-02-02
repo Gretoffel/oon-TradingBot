@@ -73,7 +73,9 @@ The bot will automatically:
 **Do not close the opened browser windows manually**, as the bot needs them to interact with the sites.
 
 ### Web Dashboard
-Note: It is recommended to use ngrok in order to remotely access the dashboard.
+
+> [Note] 
+> It is recommended to use ngrok in order to remotely access the dashboard.
 
 The included Streamlit dashboard provides a real-time interface to:
 - Monitor the bot's current status (Active, Sleeping, Error)
