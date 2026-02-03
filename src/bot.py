@@ -54,8 +54,13 @@ async def run_bot_cycle():
     async with async_playwright() as p:
         context = await p.chromium.launch_persistent_context(
             user_data_dir=config.USER_DATA_DIR,
+            channel="chrome",  # <--- FORCE REAL CHROME
             headless=False, 
-            args=["--disable-blink-features=AutomationControlled"]
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--no-sandbox"
+            ]
         )
         context.set_default_timeout(15000)
         
