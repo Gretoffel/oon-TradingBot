@@ -76,7 +76,7 @@ The bot will automatically:
 
 ### Web Dashboard
 
-> [!NOTE] 
+> [!INFO] 
 > It is recommended to use ngrok in order to remotely access the dashboard.
 
 The included Streamlit dashboard provides a real-time interface to:
