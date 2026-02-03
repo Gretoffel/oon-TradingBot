@@ -54,8 +54,14 @@ async def run_bot_cycle():
     async with async_playwright() as p:
         context = await p.chromium.launch_persistent_context(
             user_data_dir=config.USER_DATA_DIR,
+            channel="chrome",  # <--- FORCE REAL CHROME
             headless=False, 
-            args=["--disable-blink-features=AutomationControlled"]
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+                "--disable-gpu" 
+            ]
         )
         context.set_default_timeout(15000)
         
@@ -63,6 +69,19 @@ async def run_bot_cycle():
 
         try:
             page = context.pages[0] if context.pages else await context.new_page()
+            
+            # --- HIER SIND DIE NEUEN LISTENERS ---
+            # Damit siehst du im Terminal, was der Browser denkt, kurz bevor er abstürzt.
+            print("   🕵️  Aktiviere Browser-Diagnose...")
+            
+            # 1. Zeige Fehler aus der Browser-Konsole (rote Fehlermeldungen in F12)
+            page.on("console", lambda msg: print(f"   [BROWSER CONSOLE] {msg.type}: {msg.text}") if msg.type == "error" else None)
+            
+            # 2. Zeige JavaScript Fehler auf der Seite
+            page.on("pageerror", lambda exc: print(f"   [BROWSER PAGE ERROR] {exc}"))
+            
+            # 3. Melde sofort, wenn der Tab stirbt ("Aw Snap")
+            page.on("crash", lambda: print("\n   🔴🔴🔴 ALARM: BROWSER TAB IST ABGESTÜRZT! (CRASH EVENT) 🔴🔴🔴\n"))
 
             # 1. LOGIN
             remote_manager.update_status("Login", "Logge bei OON ein...")
