@@ -53,7 +53,8 @@ BOERSEN_PASSWORD=your_password
 API_KEY=your_google_api_key
 ```
 
-> Security Note: Never commit the .env file to version control. It's already included in .gitignore.
+> [!NOTE]
+> Never commit the .env file to version control. It's already included in .gitignore.
 
 ## Usage
 
@@ -75,7 +76,7 @@ The bot will automatically:
 
 ### Web Dashboard
 
-> [!Note] 
+> [!NOTE] 
 > It is recommended to use ngrok in order to remotely access the dashboard.
 
 The included Streamlit dashboard provides a real-time interface to:
