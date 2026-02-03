@@ -3,6 +3,7 @@ import json
 import re
 from datetime import datetime
 from playwright.async_api import async_playwright
+import os
 
 import config
 import remote_manager
@@ -161,7 +162,16 @@ async def run_bot_cycle():
 
             # 3. ENTSCHEIDUNG (KI ODER TEST)
             decisions = []
-            remote_manager.update_status("KI", "Frage KI nach Strategie...", balance=current_cash)
+            
+            # --- UPDATE: Send gathered data to dashboard ---
+            remote_manager.update_status(
+                "KI", 
+                "Frage KI nach Strategie...", 
+                balance=current_cash,
+                portfolio=depot_data["stocks"],
+                open_orders=depot_data["open_orders"]
+            )
+            # -----------------------------------------------
 
             if config.TEST_MODE:
                 print("\n🧪 TEST-MODUS: Überspringe KI. Lade Test-Daten...")
@@ -172,7 +182,8 @@ async def run_bot_cycle():
                 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
                 # Strategie-Datei lesen
-                strategy_file = os.path.join(PROJECT_ROOT, "src", "strategy.txt")
+                # FIX: Access PROJECT_ROOT via config module
+                strategy_file = os.path.join(config.PROJECT_ROOT, "src", "strategy.txt")
                 user_strategy = ""
                 if os.path.exists(strategy_file):
                     try:
@@ -201,12 +212,11 @@ async def run_bot_cycle():
                 {user_strategy}
                 AUFGABE:
                 1. Analysiere mein Depot und offene Aufträge.
-                2. Ziehe vom Cash gedanklich ab, was für die offenen "BUY"-Aufträge nötig ist (Schätze den Betrag).
-                3. Schlage "SELL" vor für schlechte Aktien im Besitz.
-                4. Schlage "BUY" vor für neue Chancen.
-                5. Du musst nicht immer alles machen, wenn es nicht sicher vorteilhaft ist, kannst du auch buy oder sell aktionen weglassen und nur eins davon machen oder wenn alles gehalten werden soll, eine leere menge zurückgeben "[]"
-                6. Du wirst in etwa 10-20 minuten erneut die chance haben die selbe Aufgabe mit dem neuen depot zu machen und so weiter, beachte das.
-                7. Du musst nicht das ganze Budget investieren, dazu ist später immer noch Zeit.
+                2. Recherchiere ausführlich aktuelle News zu meinen besessenen Aktien. Soll ich sie HALTEN oder VERKAUFEN ("SELL")?
+                3. Recherchiere ausführlich nach NEUEN Aktien mit hohem Potenzial ("BUY").
+                4. Du musst nicht immer alles machen, wenn es nicht sicher vorteilhaft ist, kannst du auch buy oder sell aktionen weglassen und nur eins davon machen oder wenn alles gehalten werden soll, eine leere menge zurückgeben "[]"
+                5. Du wirst in etwa 10-20 minuten erneut die chance haben die selbe Aufgabe mit dem neuen depot zu machen und so weiter, beachte das.
+                6. Du musst nicht das ganze Budget investieren, dazu ist später immer noch Zeit.
                 
                 REGELN:
                 - Beim Kaufen fallen Gebühren an (meißt etwa 5 - 20€), führe also nur Kaufaktionen durch die wirklich etwas bringen. Du erhältst die selbe investing Aufgabe in 20 Minuten wieder, wenn du jedes Mal viel verkaufst und neu kaufst, könnten die Gebühren sich deutlich aufsummieren, entscheide sinnvoll.
