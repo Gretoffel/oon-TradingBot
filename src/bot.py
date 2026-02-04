@@ -52,39 +52,57 @@ async def run_bot_cycle():
                     await page.goto(config.OON_DEPOT_URL)
                     await asyncio.sleep(2)
 
-                for trade in decisions:
-                    typ = trade.get("aktion")
+                # Trennen in SELL und BUY Entscheidungen
+                sell_decisions = [d for d in decisions if d.get("aktion") == "SELL"]
+                buy_decisions = [d for d in decisions if d.get("aktion") == "BUY"]
+                
+                # SELL-Entscheidungen zuerst ausführen (um Cash freizumachen)
+                for trade in sell_decisions:
+                    name = trade.get("name")
+                    reason = trade.get("grund", "")
+                    
+                    remote_manager.update_status("Trading", f"SELL: {name}", balance=current_cash)
+                    
+                    owned = next((s for s in depot_data["stocks"] if s["name"] in name or name in s["name"]), None)
+                    if owned:
+                        await execute_sell_order(page, owned["name"], owned["qty"], reason=reason)
+                        await asyncio.sleep(3)
+                    else:
+                        print(f"⚠️ Verkaufs-Signal für {name}, aber Aktie nicht im Bestand gefunden.")
+                
+                # BUY-Entscheidungen: Bei Limit-Abbruch nächstbessere probieren
+                buy_index = 0
+                while buy_index < len(buy_decisions) and current_cash >= config.MIN_TRADE_VOLUME:
+                    trade = buy_decisions[buy_index]
                     name = trade.get("name")
                     isin = trade.get("isin", "N/A")
                     reason = trade.get("grund", "")
+                    amt = trade.get("betrag_eur", 0)
                     
-                    remote_manager.update_status("Trading", f"{typ}: {name}", balance=current_cash)
+                    remote_manager.update_status("Trading", f"BUY: {name}", balance=current_cash)
+                    
+                    # Final Safety Check: Do we have enough cash left?
+                    if amt > (current_cash + 10):
+                        print(f"⚠️ Überspringe Kauf von {name}: Nicht genügend Cash ({current_cash:.2f} €)")
+                        buy_index += 1
+                        continue
 
-                    if typ == "BUY":
-                        amt = trade.get("betrag_eur", 0)
-                        
-                        # Final Safety Check: Do we have enough cash left?
-                        if amt > (current_cash + 10): # Small buffer for spread
-                            print(f"⚠️ Überspringe Kauf von {name}: Nicht genügend Cash ({current_cash:.2f} €)")
-                            continue
-
-                        search_term = isin if isin != "N/A" else name
-                        await execute_buy_order(page, search_term, amt, real_name=name, isin=isin, reason=reason)
-                        
-                        # Local Balance Tracking
+                    search_term = isin if isin != "N/A" else name
+                    result = await execute_buy_order(page, search_term, amt, real_name=name, isin=isin, reason=reason)
+                    
+                    if result == "SUCCESS":
+                        # Kauf erfolgreich - Cash abziehen und weiter
                         current_cash -= amt
                         await asyncio.sleep(3)
-                    
-                    elif typ == "SELL":
-                        # Find the stock in our scanned depot data to get the quantity
-                        owned = next((s for s in depot_data["stocks"] if s["name"] in name or name in s["name"]), None)
-                        if owned:
-                            await execute_sell_order(page, owned["name"], owned["qty"], reason=reason)
-                            # Note: We don't add to current_cash here because 
-                            # the money only arrives after order execution.
-                            await asyncio.sleep(3)
-                        else:
-                            print(f"⚠️ Verkaufs-Signal für {name}, aber Aktie nicht im Bestand gefunden.")
+                        buy_index += 1
+                    elif result == "CANCELLED_LIMIT_TOO_LOW":
+                        # Website-Limit macht Kauf unrentabel - nächste Aktie probieren
+                        print(f"   ➡️ Probiere nächstbessere Aktie (falls vorhanden)...")
+                        buy_index += 1
+                        # Kein Cash abziehen, da Kauf abgebrochen
+                    else:
+                        # Anderer Abbruch (nicht handelbar, etc.) - überspringen
+                        buy_index += 1
 
             remote_manager.update_status("Fertig", "Zyklus erfolgreich beendet.", balance=current_cash)
             

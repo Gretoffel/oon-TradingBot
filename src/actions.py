@@ -25,12 +25,16 @@ async def click_cancel_button(page):
     return False
 
 # --- BUY ORDER ---
+# Rückgabewerte:
+#   "SUCCESS" - Kauf erfolgreich
+#   "CANCELLED_LIMIT_TOO_LOW" - Website-Limit macht Kauf unrentabel
+#   "CANCELLED_OTHER" - Anderer Abbruchgrund (nicht handelbar, etc.)
 async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt", isin="N/A", reason="-"):
     # 1. SICHERHEITS-CHECK: GEBÜHREN
     if budget_eur < MIN_TRADE_VOLUME:
         print(f"🛑 STOP: Kauf von {real_name} abgebrochen.")
         print(f"   Grund: Budget {budget_eur:.2f} € ist unter Minimum {MIN_TRADE_VOLUME} € (Gebührenfalle!).")
-        return
+        return "CANCELLED_OTHER"
 
     # 2. SICHERHEITS-CHECK: MAX INVEST
     if budget_eur > MAX_INVEST_PER_STOCK:
@@ -92,7 +96,7 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
             if re.search(r'maximal\s*[:.]?\s*-', modal_text, re.IGNORECASE):
                 print("❌ Aktie ist NICHT handelbar (Limit: -).")
                 await click_cancel_button(page)
-                return
+                return "CANCELLED_OTHER"
 
             # Preis ermitteln für Mengenberechnung
             price_selector = "input[formcontrolname='price']"
@@ -108,19 +112,32 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
             # Limit vom Spiel beachten (z.B. max 20% Regel)
             limit_match = re.search(r'maximal\s*[:.]?\s*(\d+)', modal_text, re.IGNORECASE)
             
+            website_limit_applied = False
             if limit_match:
                 max_limit = int(limit_match.group(1))
                 if max_limit == 0:
                     print("❌ Spiel-Limit ist 0.")
                     await click_cancel_button(page)
-                    return
+                    return "CANCELLED_OTHER"
                 if qty > max_limit:
+                    print(f"   ⚠️ Website-Limit greift: Berechnete Menge {qty} → Website-Maximum {max_limit}")
                     qty = max_limit
+                    website_limit_applied = True
 
             if qty < 1:
                 print(f"⚠️ Berechnete Menge ist 0 (Preis: {current_price}, Budget: {budget_eur}).")
                 await click_cancel_button(page)
-                return
+                return "CANCELLED_OTHER"
+            
+            # NEU: Prüfen ob der Kauf mit Website-Limit noch rentabel ist
+            if website_limit_applied:
+                actual_invest_amount = qty * current_price
+                if actual_invest_amount < MIN_TRADE_VOLUME:
+                    print(f"❌ ABBRUCH: Website-Limit macht Kauf unrentabel!")
+                    print(f"   Kaufbetrag wäre nur {actual_invest_amount:.2f} € (Minimum: {MIN_TRADE_VOLUME} €)")
+                    print(f"   → Breche ab und versuche nächstbessere Aktie...")
+                    await click_cancel_button(page)
+                    return "CANCELLED_LIMIT_TOO_LOW"
                 
             print(f"   -> Kaufe Menge: {qty} zu je {current_price:.2f} €")
 
@@ -153,20 +170,22 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
                 log_success("BUY", real_name, isin, qty, current_price, reason)
                 
                 await success_btn.first.click()
+                await asyncio.sleep(3)
+                return "SUCCESS"
             except:
                 print("⚠️ Kein Erfolgs-Button erschienen. Navigiere manuell.")
                 await page.goto(OON_DEPOT_URL)
-
-            await asyncio.sleep(3)
+                return "SUCCESS"  # Vermutlich trotzdem erfolgreich
 
         except Exception as e:
             print(f"❌ Fehler während Eingabe im Modal: {e}")
             await click_cancel_button(page)
-            return
+            return "CANCELLED_OTHER"
 
     except Exception as e:
         print(f"❌ ERROR BUY {real_name}: {e}")
         await click_cancel_button(page)
+        return "CANCELLED_OTHER"
 
 # --- SELL ORDER ---
 async def execute_sell_order(page, stock_name, quantity, reason="-"):
