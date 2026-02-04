@@ -191,7 +191,15 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
                 return "SUCCESS"  # Vermutlich trotzdem erfolgreich
 
         except Exception as e:
-            print(f"❌ Fehler während Eingabe im Modal: {e}")
+            err_msg = str(e)
+            print(f"❌ Fehler während Eingabe im Modal: {err_msg}")
+            
+            # Check for hidden input timeout (Blacklist candidate)
+            # "waiting for locator(...) to be visible" -> Timeout
+            if "Timeout" in err_msg and "numOfShares" in err_msg:
+                print("⛔ Input-Feld Timeout -> Vermutlich gesperrt/hidden (Blacklist).")
+                add_to_blacklist(search_term, f"Input Timeout / Not Tradeable ({real_name})")
+
             await click_cancel_button(page)
             return "CANCELLED_OTHER"
 

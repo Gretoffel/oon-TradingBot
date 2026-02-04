@@ -5,17 +5,44 @@ import config
 
 # Expanded Ticker List for better opportunities
 TICKER_MAPPING = {
-    # ATX Prime (Liquid)
+    # --- ATX Prime (Österreich) ---
     "AT0000652011": "EBS.VI", "AT0000743059": "OMV.VI", "AT0000937503": "VOE.VI",
     "AT0000746409": "VER.VI", "AT0000606306": "RBI.VI", "AT0000831706": "WIE.VI",
     "AT0000730007": "ANDR.VI", "AT0000BAWAG2": "BG.VI",
-    # US Tech (High Volatility)
-    "US67066G1040": "NVDA", "US88160R1014": "TSLA", "US0231351067": "AMZN",
-    "US0378331005": "AAPL", "US5949181045": "MSFT", "US0079031078": "AMD",
-    "US30303M1027": "META", "US22788C1053": "CRWD", "US69608A1088": "PLTR",
-    "US11135F1012": "AVGO", "US5951121038": "MU", "US02079K3059": "GOOGL",
-    # DAX movers
-    "DE0007030009": "RHM.DE", "DE0007164600": "SAP.DE", "DE0007664039": "VOW3.DE"
+
+    # --- US Tech & Growth (High Volatility) ---
+    "US67066G1040": "NVDA",  "US88160R1014": "TSLA",  "US0231351067": "AMZN",
+    "US0378331005": "AAPL",  "US5949181045": "MSFT",  "US0079031078": "AMD",
+    "US30303M1027": "META",  "US22788C1053": "CRWD",  "US69608A1088": "PLTR",
+    "US11135F1012": "AVGO",  "US5951121038": "MU",    "US02079K3059": "GOOGL",
+    "US4581401001": "INTC",  "US70450Y1038": "PYPL",  "US64110L1061": "NFLX",
+    "US1912161007": "KO",    "US0846707026": "BRK-B", "US92826C8394": "V",
+    "US46625H1005": "JPM",   "US5801351017": "MCD",   "US2546871060": "DIS",
+    "US60770K1079": "MRNA",  "US7170811035": "PFE",   "US8825081040": "TXN",
+    "US7475251036": "QCOM",                           # Qualcomm
+    "US90353T1007": "U",     # Unity Software
+    "US09075V1026": "BNTX",  # Biontech
+    
+    # --- DAX 40 (Deutschland) ---
+    "DE0007030009": "RHM.DE",  # Rheinmetall
+    "DE0007164600": "SAP.DE",  
+    "DE0007664039": "VOW3.DE", # VW
+    "DE0007236101": "SIE.DE",  # Siemens
+    "DE0008404005": "ALV.DE",  # Allianz
+    "DE0007100000": "MBG.DE",  # Mercedes
+    "DE0005557508": "DTE.DE",  # Telekom
+    "DE0005190003": "BMW.DE",
+    "DE000BASF111": "BAS.DE",  # BASF
+    "DE000A1EWWW0": "ADS.DE",  # Adidas
+    "DE0006231004": "IFX.DE",  # Infineon
+    "DE000ENAG999": "EOAN.DE", # E.ON
+    
+    # --- Euro Stoxx 50 / Europa ---
+    "NL0000388619": "UNA.AS", # Unilever (Amsterdam)
+    "FR0000120271": "TTE.PA", # TotalEnergies (Paris)
+    "NL0010273215": "ASML.AS",# ASML (Amsterdam)
+    "FR0000121014": "MC.PA",  # LVMH (Paris)
+    "FR0000052292": "RMS.PA", # Hermes (Paris)
 }
 
 # Fallback-Mapping: Wenn ISIN nicht gescannt wird, suche nach dem Namen
@@ -27,6 +54,7 @@ NAME_TO_ISIN_FALLBACK = {
     "nvidia": "US67066G1040",
     "microsoft": "US5949181045",
     "meta": "US30303M1027",
+    "facebook": "US30303M1027",
     "alphabet": "US02079K3059",
     "google": "US02079K3059",
     "amd": "US0079031078",
@@ -36,6 +64,14 @@ NAME_TO_ISIN_FALLBACK = {
     "palantir": "US69608A1088",
     "broadcom": "US11135F1012",
     "micron": "US5951121038",
+    "netflix": "US64110L1061",
+    "paypal": "US70450Y1038",
+    "intel": "US4581401001",
+    "disney": "US2546871060",
+    "coca-cola": "US1912161007",
+    "coca cola": "US1912161007",
+    "berkshire": "US0846707026",
+    "visa": "US92826C8394",
     # ATX
     "erste group": "AT0000652011",
     "omv": "AT0000743059",
@@ -45,10 +81,26 @@ NAME_TO_ISIN_FALLBACK = {
     "wienerberger": "AT0000831706",
     "andritz": "AT0000730007",
     "bawag": "AT0000BAWAG2",
-    # DAX
+    # DAX / Europa
     "rheinmetall": "DE0007030009",
     "sap": "DE0007164600",
     "volkswagen": "DE0007664039",
+    "vw": "DE0007664039",
+    "siemens": "DE0007236101",
+    "allianz": "DE0008404005",
+    "mercedes": "DE0007100000",
+    "daimler": "DE0007100000",
+    "telekom": "DE0005557508",
+    "deutsche telekom": "DE0005557508",
+    "bmw": "DE0005190003",
+    "basf": "DE000BASF111",
+    "adidas": "DE000A1EWWW0",
+    "infineon": "DE0006231004",
+    "e.on": "DE000ENAG999",
+    "eon": "DE000ENAG999",
+    "asml": "NL0010273215",
+    "lvmh": "FR0000121014",
+    "louis vuitton": "FR0000121014",
 }
 
 def get_isin_by_name(name: str) -> str | None:

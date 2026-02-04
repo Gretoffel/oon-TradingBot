@@ -3,6 +3,7 @@ import remote_manager
 import utils
 import time
 import pandas as pd
+import html
 
 st.set_page_config(
     page_title="Trading Bot Remote", 
@@ -16,7 +17,7 @@ st.markdown("""
     <style>
     .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
     .status-box { padding: 15px; border-radius: 10px; border: 1px solid #333; background-color: #1E1E1E; }
-    .console-box { background-color: #0e0e0e; color: #00ff00; font-family: monospace; padding: 10px; border-radius: 5px; height: 400px; overflow-y: scroll; white-space: pre-wrap; border: 1px solid #444; font-size: 0.85em; }
+    .console-box { background-color: #0e0e0e; color: #ffffff; font-family: monospace; padding: 10px; border-radius: 5px; height: 400px; overflow-y: scroll; white-space: pre-wrap; border: 1px solid #444; font-size: 0.85em; }
     div[data-testid="stMetricValue"] { font-size: 28px; }
     /* Fix für Tabellen-Header */
     th { text-align: left !important; }
@@ -147,7 +148,8 @@ with tab2:
 # --- TAB 3: KONSOLE ---
 with tab3:
     st.caption("Live Output (stdout)")
-    st.markdown(f'<div class="console-box">{live_logs}</div>', unsafe_allow_html=True)
+    safe_logs = html.escape(live_logs)
+    st.markdown(f'<div class="console-box">{safe_logs}</div>', unsafe_allow_html=True)
     if st.button("Refresh Log"): st.rerun()
     if st.checkbox("Auto-Refresh", value=True):
         time.sleep(REFRESH_RATE)
