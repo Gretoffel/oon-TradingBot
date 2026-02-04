@@ -72,6 +72,20 @@ def calculate_ema(series, span):
     """Calculates Exponential Moving Average."""
     return series.ewm(span=span, adjust=False).mean()
 
+def calculate_vwap(df):
+    """Calculates Volume Weighted Average Price - wichtig für Day-Trading."""
+    typical_price = (df['High'] + df['Low'] + df['Close']) / 3
+    vwap = (typical_price * df['Volume']).cumsum() / df['Volume'].cumsum()
+    return vwap
+
+def calculate_atr(df, period=14):
+    """Calculates Average True Range - Volatilitätsindikator für dynamisches Risikomanagement."""
+    high_low = df['High'] - df['Low']
+    high_close = abs(df['High'] - df['Close'].shift())
+    low_close = abs(df['Low'] - df['Close'].shift())
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    return tr.rolling(window=period).mean()
+
 def get_market_snapshot():
     tickers = list(TICKER_MAPPING.values())
     isin_map = {v: k for k, v in TICKER_MAPPING.items()}
@@ -104,6 +118,19 @@ def get_market_snapshot():
                 current_ema_short = float(ema_short.iloc[-1])
                 current_ema_long = float(ema_long.iloc[-1])
                 
+                # NEU: VWAP berechnen
+                vwap_series = calculate_vwap(df)
+                current_vwap = float(vwap_series.iloc[-1]) if not np.isnan(vwap_series.iloc[-1]) else current_price
+                
+                # NEU: ATR berechnen
+                atr_series = calculate_atr(df, 14)
+                current_atr = float(atr_series.iloc[-1]) if not np.isnan(atr_series.iloc[-1]) else 0.0
+                
+                # NEU: Volume Ratio (aktuelles Volumen / 20-Perioden-Durchschnitt)
+                volume_avg = df['Volume'].rolling(20).mean().iloc[-1]
+                current_volume = df['Volume'].iloc[-1]
+                volume_ratio = float(current_volume / volume_avg) if volume_avg > 0 else 1.0
+                
                 momentum_pct = ((current_price - prev_price) / prev_price) * 100
                 isin = isin_map.get(ticker)
                 
@@ -115,11 +142,14 @@ def get_market_snapshot():
                 if isin and not np.isnan(current_price):
                     results[isin] = {
                         "ticker": ticker,
-                        "isin": isin, # <--- CRITICAL: passed back for execution
+                        "isin": isin,
                         "price": current_price,
                         "rsi": current_rsi if not np.isnan(current_rsi) else 50,
                         "ema_9": current_ema_short,
                         "ema_20": current_ema_long,
+                        "vwap": current_vwap,           # NEU
+                        "atr": current_atr,             # NEU
+                        "volume_ratio": volume_ratio,   # NEU
                         "momentum": momentum_pct,
                         "trend": trend
                     }

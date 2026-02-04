@@ -160,4 +160,54 @@ def get_transaction_history():
         except Exception as e:
             continue
             
+            
     return history
+
+# --- BLACKLIST MANAGER ---
+
+def load_blacklist():
+    """Lädt die Liste der blockierten Aktien (Ticker/ISIN)."""
+    if not os.path.exists(config.BLACKLIST_FILE):
+        return []
+    
+    try:
+        with open(config.BLACKLIST_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            # Falls es ein Dict ist (altes Format?), Liste extrahieren oder leer
+            if isinstance(data, list): return data
+            return []
+    except Exception as e:
+        print(f"⚠️ Fehler beim Laden der Blacklist: {e}")
+        return []
+
+def save_blacklist(data):
+    """Speichert die Blacklist."""
+    try:
+        if not os.path.exists(config.JSON_DIR):
+            os.makedirs(config.JSON_DIR)
+            
+        with open(config.BLACKLIST_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        print(f"⚠️ Fehler beim Speichern der Blacklist: {e}")
+
+def add_to_blacklist(identifier, reason="Not Tradeable"):
+    """Fügt eine Aktie (Ticker oder ISIN) der Blacklist hinzu."""
+    if not identifier or identifier == "N/A": return
+    
+    current_list = load_blacklist()
+    
+    # Check if already exists (by identifier)
+    exists = any(item['id'] == identifier for item in current_list)
+    
+    if not exists:
+        entry = {
+            "id": identifier,
+            "reason": reason,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        current_list.append(entry)
+        save_blacklist(current_list)
+        print(f"🚫 BLACKLIST: {identifier} wurde hinzugefügt ({reason}).")
+    else:
+        print(f"ℹ️ {identifier} ist bereits auf der Blacklist.")

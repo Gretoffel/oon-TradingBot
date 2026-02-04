@@ -1,6 +1,7 @@
 import config
 from datetime import datetime
 from market_data import get_market_snapshot, get_isin_by_name
+from utils import load_blacklist
 
 def is_market_open(ticker):
     """Checks market hours (CET)."""
@@ -107,19 +108,33 @@ def calculate_algo_decisions(depot_data):
         action = "HOLD"
         reason = "Strategy fits"
 
-        # --- LOGIC ---
+        # --- VERBESSERTE EXIT-LOGIK ---
         
-        # A. Stop Loss (Prioritize Safety)
+        # A. Hard Stop Loss (Prioritize Safety - absoluter Boden)
         if game_perf_pct <= config.STOP_LOSS_HARD_PCT:
             action = "SELL"
-            reason = f"🛑 Stop Loss Hit ({game_perf_pct}%)"
-            
-        # B. Take Profit (Greed)
+            reason = f"🛑 Stop Loss Hit ({game_perf_pct:.1f}%)"
+        
+        # B. Hard Take Profit (Ziel erreicht)
         elif game_perf_pct >= config.TAKE_PROFIT_HARD_PCT:
             action = "SELL"
-            reason = f"💰 Take Profit Hit ({game_perf_pct}%)"
+            reason = f"💰 Take Profit Hit ({game_perf_pct:.1f}%)"
+        
+        # C. NEUER TRAILING STOP - Gewinne absichern!
+        elif game_perf_pct >= config.TRAILING_STOP_ACTIVATE_PCT:
+            # Trailing Stop aktiviert ab +1%
+            # Wenn Preis unter EMA9 fällt = Momentum verloren
+            if price < ema9:
+                action = "SELL"
+                reason = f"🔒 Trailing Stop ({game_perf_pct:.1f}% | EMA9 gebrochen)"
+            # ODER wenn RSI überkauft und Trend kippt
+            elif rsi > config.RSI_OVERBOUGHT and trend != "UP":
+                action = "SELL"
+                reason = f"🔒 Trailing Stop ({game_perf_pct:.1f}% | RSI={rsi:.0f})"
+            else:
+                reason = f"Trailing aktiv, Gewinn gesichert ≥{config.TRAILING_STOP_LOCK_IN_PCT}%"
             
-        # C. Technical Exit (Weakness)
+        # D. Technical Exit (Weakness ohne Gewinn)
         elif rsi > config.RSI_OVERBOUGHT:
             action = "SELL"
             reason = f"Overbought RSI ({rsi:.0f})"
@@ -160,10 +175,24 @@ def calculate_algo_decisions(depot_data):
         candidates = []
         pending_buy_isins = [o['isin'] for o in depot_data['open_orders'] if o['type'] == 'BUY']
         
+        # Load Blacklist
+        blacklist_entries = load_blacklist()
+        blacklist_ids = set(e['id'] for e in blacklist_entries)
+        
         print(f"{'TICKER':<10} | {'PRICE':<8} | {'RSI':<5} | {'TREND':<7} | {'STATUS'}")
-
+        
         for isin, data in market_data.items():
+            # Blacklist Check
+            if isin in blacklist_ids: 
+                # print(f"   🚫 {data['ticker']} auf Blacklist (ISIN: {isin})")
+                continue
+            
             ticker = data['ticker']
+            simple_ticker = ticker.split(".")[0]
+            
+            # Auch Ticker prüfen (falls per Name geblacklistet wurde)
+            if ticker in blacklist_ids or simple_ticker in blacklist_ids:
+                continue
             
             # Skip if market closed
             if not is_market_open(ticker): 
@@ -182,22 +211,47 @@ def calculate_algo_decisions(depot_data):
             price = data['price']
             ema20 = data['ema_20']
             
-            status_msg = "Wait"
-
-            # 1. Trend Filter
-            if price > ema20: score += 1
-            else: status_msg = "Downtrend"
+            # Neue Indikatoren
+            vwap = data.get('vwap', price)
+            volume_ratio = data.get('volume_ratio', 1.0)
             
-            # 2. RSI Filter
-            if 50 <= rsi <= 70: score += 2
-            elif rsi > 70: status_msg = "Overbought"
-            elif rsi < 50: status_msg = "Weak Mom."
+            status_parts = []
 
-            if score >= 3:
-                status_msg = "✅ BUY SIGNAL"
-                candidates.append(data)
+            # 1. Trend Filter (EMA20 + VWAP)
+            if price > ema20:
+                score += 1
+            else:
+                status_parts.append("Bearish")
                 
-            print(f"{ticker:<10} | {price:<8.2f} | {rsi:<5.1f} | {data['trend']:<7} | {status_msg}")
+            if price > vwap:
+                score += 1
+                status_parts.append("Above VWAP")
+            else:
+                status_parts.append("Below VWAP")
+
+            # 2. RSI Filter
+            if config.RSI_BUY_MIN <= rsi <= config.RSI_BUY_MAX:
+                score += 1
+            elif rsi > config.RSI_BUY_MAX:
+                status_parts.append("Overbought")
+            elif rsi < config.RSI_BUY_MIN: 
+                status_parts.append("Weak Mom.")
+
+            # 3. Volume Filter
+            if volume_ratio >= config.MIN_VOLUME_RATIO:
+                score += 1
+                status_parts.append("High Vol")
+            else:
+                status_parts.append("Low Vol")
+
+            # Entscheidung: Mindestens 3 von 4 Punkten
+            if score >= 3:
+                status_msg = f"✅ BUY (Score {score}/4)"
+                candidates.append(data)
+            else:
+                status_msg = f"Wait ({score}/4)"
+                
+            print(f"{ticker:<10} | {price:<8.2f} | {rsi:<5.1f} | {data['trend']:<7} | {volume_ratio:<4.1f}x Vol | {status_msg}")
 
         if candidates:
             # 1. Rank by RSI (Lower is better within our 50-70 range)
@@ -235,7 +289,7 @@ def calculate_algo_decisions(depot_data):
                         "isin": best['isin'], # Make sure isin is passed into the dict in the loop
                         "name": best['ticker'],
                         "betrag_eur": invest_amount,
-                        "grund": f"Trend UP + RSI {best['rsi']:.1f} (Rank {i+1})"
+                        "grund": f"Score 3+/4 (RSI {best['rsi']:.0f}, Vol {best.get('volume_ratio', 1.0):.1f}x)"
                     })
                     
                     print(f"   ✅ Added to execution: {best['ticker']} ({invest_amount:.2f} €)")

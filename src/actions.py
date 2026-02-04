@@ -1,7 +1,7 @@
 import asyncio
 import math
 import re
-from utils import clean_amount, log_success
+from utils import clean_amount, log_success, add_to_blacklist
 from config import OON_DEPOT_URL, MIN_TRADE_VOLUME, MAX_INVEST_PER_STOCK
 
 async def click_cancel_button(page):
@@ -92,9 +92,25 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
 
             modal_text = await page.locator("ngb-modal-window").inner_text()
 
-            # Check: Ist es handelbar?
+            # Check 1: "Kann nicht gehandelt werden" (Fehlermeldung)
+            if "nicht gehandelt werden" in modal_text or "not tradeable" in modal_text.lower():
+                print("⛔ Aktie ist gesperrt/nicht handelbar (Blacklist!).")
+                add_to_blacklist(search_term, f"Kann nicht gehandelt werden ({real_name})")
+                await click_cancel_button(page)
+                return "CANCELLED_OTHER"
+
+            # Check 2: Limit ist "-"
             if re.search(r'maximal\s*[:.]?\s*-', modal_text, re.IGNORECASE):
-                print("❌ Aktie ist NICHT handelbar (Limit: -).")
+                print("⛔ Aktie hat Limit '-' (Blacklist!).")
+                add_to_blacklist(search_term, f"Limit ist - ({real_name})")
+                await click_cancel_button(page)
+                return "CANCELLED_OTHER"
+
+            # Check 3: Limit ist 0
+            limit_match_zero = re.search(r'maximal\s*[:.]?\s*0\b', modal_text, re.IGNORECASE)
+            if limit_match_zero:
+                print("⛔ Aktie hat Limit 0 (Blacklist!).")
+                add_to_blacklist(search_term, f"Limit ist 0 ({real_name})")
                 await click_cancel_button(page)
                 return "CANCELLED_OTHER"
 
@@ -115,10 +131,7 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
             website_limit_applied = False
             if limit_match:
                 max_limit = int(limit_match.group(1))
-                if max_limit == 0:
-                    print("❌ Spiel-Limit ist 0.")
-                    await click_cancel_button(page)
-                    return "CANCELLED_OTHER"
+                # 0 wurde schon oben abgefangen
                 if qty > max_limit:
                     print(f"   ⚠️ Website-Limit greift: Berechnete Menge {qty} → Website-Maximum {max_limit}")
                     qty = max_limit

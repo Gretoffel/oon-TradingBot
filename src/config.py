@@ -21,6 +21,7 @@ USER_DATA_DIR = os.path.join(PROJECT_ROOT, "google_session")
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 JSON_DIR = os.path.join(PROJECT_ROOT, "json")
 SESSION_LOG_FILE = os.path.join(LOG_DIR, "session_live.log")
+BLACKLIST_FILE = os.path.join(JSON_DIR, "blacklist_stocks.json")
 
 # --- DAY TRADING SPEED ---
 # Increased frequency for better entry/exit
@@ -34,9 +35,17 @@ MIN_CASH_FOR_NEW_TRADE = 6000.0
 MAX_NEW_POSITIONS_PER_CYCLE = 3  # <--- NEW: Don't over-diversify in one go
 
 # --- STRATEGY SETTINGS ---
-# Hard Limits (Safety Net)
+# Hard Limits (Safety Net - Fallback wenn keine ATR-Daten)
 TAKE_PROFIT_HARD_PCT = 3.0    # Absolute exit if it flies
 STOP_LOSS_HARD_PCT = -1.5     # Absolute exit if it crashes
+
+# ATR-basiertes Risikomanagement
+ATR_STOP_LOSS_MULTIPLIER = 1.5    # Stop-Loss = Entry - (ATR × 1.5)
+ATR_TAKE_PROFIT_MULTIPLIER = 2.5  # Take-Profit = Entry + (ATR × 2.5)
+
+# Trailing Stop Einstellungen
+TRAILING_STOP_ACTIVATE_PCT = 1.0   # Aktiviere Trailing Stop ab +1%
+TRAILING_STOP_LOCK_IN_PCT = 0.5    # Lock-in 0.5% unter aktuellem Gewinn
 
 # Technical Indicators
 RSI_PERIOD = 14
@@ -44,6 +53,9 @@ RSI_OVERBOUGHT = 75     # Sell zone
 RSI_OVERSOLD = 30       # (Reference)
 RSI_BUY_MIN = 50        # Momentum must be positive
 RSI_BUY_MAX = 70        # Don't buy if already peaked
+
+# Volumen-Filter
+MIN_VOLUME_RATIO = 1.2  # Kaufe nur wenn Volumen >= 120% des Durchschnitts
 
 # --- TEST MODE ---
 TEST_MODE = False  
