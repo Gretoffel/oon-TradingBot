@@ -132,9 +132,31 @@ async def scan_depot(page):
                 order_type = "BUY" if "Kauf" in type_text else "SELL" if "Verkauf" in type_text else "UNKNOWN"
                 qty = clean_amount(await row.locator("td").nth(2).inner_text())
                 status_text = await row.locator("td").nth(4).inner_text()
-                entry = { "name": name.strip(), "isin": isin, "type": order_type, "qty": qty, "status": status_text.strip() }
+                
+                # Betrag (EUR) für offene Aufträge erfassen
+                betrag_eur = 0.0
+                try:
+                    # Suche nach EUR-Betrag in den Zellen
+                    cells = await row.locator("td").all()
+                    for cell in cells:
+                        cell_text = await cell.inner_text()
+                        # Suche nach EUR-Beträgen (z.B. "1.000,00 €" oder "500,00")
+                        if "€" in cell_text or "EUR" in cell_text:
+                            betrag_eur = clean_amount(cell_text)
+                            if betrag_eur > 0:
+                                break
+                except: pass
+                
+                entry = { 
+                    "name": name.strip(), 
+                    "isin": isin, 
+                    "type": order_type, 
+                    "qty": qty, 
+                    "betrag_eur": betrag_eur,
+                    "status": status_text.strip() 
+                }
                 depot_data["open_orders"].append(entry)
-                print(f"   ⏳ Offener Auftrag: {entry['type']} {entry['qty']}x {entry['name']}")
+                print(f"   ⏳ Offener Auftrag: {entry['type']} {entry['qty']}x {entry['name']} | Betrag: {betrag_eur:.2f} €")
             except: continue
     except Exception as e:
         print(f"⚠️ Scan Fehler (Offene Aufträge): {e}")

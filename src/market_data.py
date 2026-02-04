@@ -12,10 +12,52 @@ TICKER_MAPPING = {
     # US Tech (High Volatility)
     "US67066G1040": "NVDA", "US88160R1014": "TSLA", "US0231351067": "AMZN",
     "US0378331005": "AAPL", "US5949181045": "MSFT", "US0079031078": "AMD",
-    "US30303M1027": "META", 
+    "US30303M1027": "META", "US22788C1053": "CRWD", "US69608A1088": "PLTR",
+    "US11135F1012": "AVGO", "US5951121038": "MU", "US02079K3059": "GOOGL",
     # DAX movers
     "DE0007030009": "RHM.DE", "DE0007164600": "SAP.DE", "DE0007664039": "VOW3.DE"
 }
+
+# Fallback-Mapping: Wenn ISIN nicht gescannt wird, suche nach dem Namen
+# Schlüsselwörter aus dem Aktiennamen -> ISIN
+NAME_TO_ISIN_FALLBACK = {
+    # US Tech
+    "amazon": "US0231351067",
+    "apple": "US0378331005",
+    "nvidia": "US67066G1040",
+    "microsoft": "US5949181045",
+    "meta": "US30303M1027",
+    "alphabet": "US02079K3059",
+    "google": "US02079K3059",
+    "amd": "US0079031078",
+    "advanced micro": "US0079031078",
+    "tesla": "US88160R1014",
+    "crowdstrike": "US22788C1053",
+    "palantir": "US69608A1088",
+    "broadcom": "US11135F1012",
+    "micron": "US5951121038",
+    # ATX
+    "erste group": "AT0000652011",
+    "omv": "AT0000743059",
+    "voestalpine": "AT0000937503",
+    "verbund": "AT0000746409",
+    "raiffeisen": "AT0000606306",
+    "wienerberger": "AT0000831706",
+    "andritz": "AT0000730007",
+    "bawag": "AT0000BAWAG2",
+    # DAX
+    "rheinmetall": "DE0007030009",
+    "sap": "DE0007164600",
+    "volkswagen": "DE0007664039",
+}
+
+def get_isin_by_name(name: str) -> str | None:
+    """Findet ISIN anhand des Aktiennamens (Fuzzy-Match)."""
+    name_lower = name.lower()
+    for keyword, isin in NAME_TO_ISIN_FALLBACK.items():
+        if keyword in name_lower:
+            return isin
+    return None
 
 def calculate_rsi(series, period=14):
     """Calculates Relative Strength Index."""

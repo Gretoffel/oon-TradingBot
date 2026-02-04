@@ -1,6 +1,6 @@
 import config
 from datetime import datetime
-from market_data import get_market_snapshot
+from market_data import get_market_snapshot, get_isin_by_name
 
 def is_market_open(ticker):
     """Checks market hours (CET)."""
@@ -48,22 +48,31 @@ def calculate_algo_decisions(depot_data):
             print(f"{name[:19]:<20} | 🔒 LOCKED | {stock.get('performance_since_buy', 'N/A'):<7} | {'-':<5} | {'-':<7} | Pending Sell Order")
             continue
 
-        # 2. MATCH DATA (Try ISIN first, then Name)
+        # 2. MATCH DATA (Try multiple methods)
         ticker_data = None
+        resolved_isin = isin
         
-        # Method A: ISIN Match (Best)
-        if isin in market_data:
+        # Method A: ISIN Match (Best - wenn ISIN korrekt gescannt wurde)
+        if isin != "N/A" and isin in market_data:
             ticker_data = market_data[isin]
         
-        # Method B: Name/Ticker Fuzzy Match (Fallback)
+        # Method B: Name-to-ISIN Fallback (wenn ISIN "N/A" oder nicht gefunden)
         if not ticker_data:
+            fallback_isin = get_isin_by_name(name)
+            if fallback_isin and fallback_isin in market_data:
+                ticker_data = market_data[fallback_isin]
+                resolved_isin = fallback_isin
+        
+        # Method C: Fuzzy Name/Ticker Match (Letzte Chance)
+        if not ticker_data:
+            name_lower = name.lower()
             for m_isin, data in market_data.items():
-                simple_ticker = data['ticker'].split(".")[0] # e.g. "AMZN" from "AMZN"
-                # Check if Ticker is in Name (e.g. "NVDA" in "NVIDIA Corp") - rare
-                # Check if Name contains Ticker (e.g. "Amazon" vs "AMZN") - hard
-                # Use Mapping from market_data.py to be safe
-                if simple_ticker == name or simple_ticker in name:
+                ticker = data['ticker']
+                simple_ticker = ticker.split(".")[0].lower()
+                # Prüfe ob Ticker im Namen vorkommt
+                if simple_ticker in name_lower or name_lower in simple_ticker:
                     ticker_data = data
+                    resolved_isin = m_isin
                     break
 
         # 3. GET PERFORMANCE
@@ -128,8 +137,22 @@ def calculate_algo_decisions(depot_data):
 
     # --- 2. MARKET SCAN ---
     print("\n" + "-"*80)
-    cash = depot_data['cash']
-    print(f"🔭 MARKET SCAN | Cash: {cash:.2f} €")
+    
+    # Berechne das tatsächlich verfügbare Cash:
+    # Angezeigte Cash MINUS Betrag der offenen Kaufaufträge
+    displayed_cash = depot_data['cash']
+    pending_buy_amount = sum(
+        order.get('betrag_eur', 0) 
+        for order in depot_data['open_orders'] 
+        if order['type'] == 'BUY'
+    )
+    cash = displayed_cash - pending_buy_amount
+    
+    print(f"🔭 MARKET SCAN")
+    print(f"   💰 Angezeigtes Cash:      {displayed_cash:.2f} €")
+    if pending_buy_amount > 0:
+        print(f"   📋 Offene Kaufaufträge:  -{pending_buy_amount:.2f} €")
+    print(f"   ➡️  Verfügbares Budget:   {cash:.2f} €")
     
     if cash < config.MIN_CASH_FOR_NEW_TRADE:
         print("   ⚠️ Insufficient Cash to trade.")
@@ -176,11 +199,6 @@ def calculate_algo_decisions(depot_data):
                 
             print(f"{ticker:<10} | {price:<8.2f} | {rsi:<5.1f} | {data['trend']:<7} | {status_msg}")
 
-        # --- 2. MARKET SCAN (Inside calculate_algo_decisions) ---
-        # ... (Keep the scan loop that populates 'candidates')
-    
-        # REPLACE THE "Pick Winner" SECTION WITH THIS:
-    
         if candidates:
             # 1. Rank by RSI (Lower is better within our 50-70 range)
             candidates.sort(key=lambda x: x['rsi'])
@@ -225,4 +243,5 @@ def calculate_algo_decisions(depot_data):
                 else:
                     print(f"   ⚠️ Skipping {best['ticker']}: Insufficient remaining cash ({current_temp_cash:.2f} €)")
     
-        return decisions
+    # WICHTIG: Decisions IMMER zurückgeben (enthält SELL-Aktionen aus Portfolio-Analyse)
+    return decisions

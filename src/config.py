@@ -28,9 +28,9 @@ SUCCESS_WAIT_SECONDS = 20
 ERROR_WAIT_SECONDS = 10           
 
 # --- RISK MANAGEMENT ---
-MIN_TRADE_VOLUME = 800.0  
-MAX_INVEST_PER_STOCK = 8000.0 # Reduced slightly to allow diversification
-MIN_CASH_FOR_NEW_TRADE = 800.0 
+MIN_TRADE_VOLUME = 7000.0  
+MAX_INVEST_PER_STOCK = 10000.0 # Reduced slightly to allow diversification
+MIN_CASH_FOR_NEW_TRADE = 7000.0 
 MAX_NEW_POSITIONS_PER_CYCLE = 3  # <--- NEW: Don't over-diversify in one go
 
 # --- STRATEGY SETTINGS ---
