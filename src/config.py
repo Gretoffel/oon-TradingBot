@@ -15,28 +15,27 @@ MY_PASSWORD = os.getenv("BOERSEN_PASSWORD")
 # URLs
 OON_LOGIN_URL = "https://www.oon-boersespiel.at/de/start.html?login=open"
 OON_DEPOT_URL = "https://www.oon-boersespiel.at/de/boersespiel.html#/personal/portfolio//detail/overview"
-AI_STUDIO_URL = "https://aistudio.google.com/app/prompts/new_chat"
 
 # Settings
 USER_DATA_DIR = os.path.join(PROJECT_ROOT, "google_session")
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 JSON_DIR = os.path.join(PROJECT_ROOT, "json")
-
-# NEW: File to store live console output for the dashboard
 SESSION_LOG_FILE = os.path.join(LOG_DIR, "session_live.log")
 
-SUCCESS_WAIT_SECONDS = 15 * 60    
+# --- DAY TRADING SPEED ---
+SUCCESS_WAIT_SECONDS = 60      # Jede Minute prüfen!
 ERROR_WAIT_SECONDS = 10           
+
+# --- RISK MANAGEMENT ---
+# Regel: Nie unter 5k handeln wegen Gebühren (~20€). Zielgröße: 10k.
+MIN_TRADE_VOLUME = 800.0  
+MAX_INVEST_PER_STOCK = 10000.0
+MIN_CASH_FOR_NEW_TRADE = 800.0 
+
+# Take Profit / Stop Loss (in Prozent)
+TAKE_PROFIT_PCT = 1.5   # Bei +1.5% Gewinn sofort raus
+STOP_LOSS_PCT = -0.8    # Bei -0.8% Verlust Notbremse
 
 # --- TEST MODE ---
 TEST_MODE = False  
-
-TEST_ORDERS = [
-    {
-        "aktion": "SELL",
-        "name": "Palantir Technologies Inc",
-        "isin": "US69608A1088",
-        "betrag_eur": 985,
-        "grund": "Manueller Testlauf für selling"
-    }
-]
+TEST_ORDERS = []
