@@ -1,76 +1,90 @@
 import yfinance as yf
 import pandas as pd
-import time
+import numpy as np
+import config
 
-# Mapping: ISIN -> Yahoo Ticker
-# Fokus auf ATX (Minütliche Ausführung) + Volatile US Techs
+# Expanded Ticker List for better opportunities
 TICKER_MAPPING = {
-    # ATX (Priorität 1)
-    "AT0000652011": "EBS.VI",  # Erste Group
-    "AT0000743059": "OMV.VI",  # OMV
-    "AT0000937503": "VOE.VI",  # Voestalpine
-    "AT0000746409": "VER.VI",  # Verbund
-    "AT0000606306": "RBI.VI",  # Raiffeisen
-    "AT0000831706": "WIE.VI",  # Wienerberger
-    "AT0000730007": "ANDR.VI", # Andritz
-    "AT0000BAWAG2": "BG.VI",   # BAWAG
-    
-    # US Tech / International (Nur handeln wenn starker Trend, da 15min Delay im Display)
-    "US67066G1040": "NVDA",    # Nvidia
-    "US88160R1014": "TSLA",    # Tesla
-    "US0231351067": "AMZN",    # Amazon
-    "DE0007030009": "RHM.DE",  # Rheinmetall
+    # ATX Prime (Liquid)
+    "AT0000652011": "EBS.VI", "AT0000743059": "OMV.VI", "AT0000937503": "VOE.VI",
+    "AT0000746409": "VER.VI", "AT0000606306": "RBI.VI", "AT0000831706": "WIE.VI",
+    "AT0000730007": "ANDR.VI", "AT0000BAWAG2": "BG.VI",
+    # US Tech (High Volatility)
+    "US67066G1040": "NVDA", "US88160R1014": "TSLA", "US0231351067": "AMZN",
+    "US0378331005": "AAPL", "US5949181045": "MSFT", "US0079031078": "AMD",
+    "US30303M1027": "META", 
+    # DAX movers
+    "DE0007030009": "RHM.DE", "DE0007164600": "SAP.DE", "DE0007664039": "VOW3.DE"
 }
 
+def calculate_rsi(series, period=14):
+    """Calculates Relative Strength Index."""
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+def calculate_ema(series, span):
+    """Calculates Exponential Moving Average."""
+    return series.ewm(span=span, adjust=False).mean()
+
 def get_market_snapshot():
-    """
-    Holt Live-Daten aller Ticker gleichzeitig.
-    Gibt ein Dictionary zurück: {'ISIN': {'price': 100.0, 'change_5m_pct': 0.5}}
-    """
     tickers = list(TICKER_MAPPING.values())
     isin_map = {v: k for k, v in TICKER_MAPPING.items()}
-    
     results = {}
     
     try:
-        # Download der letzten 5 Minuten (Interval 1m)
-        # Wir brauchen genug Daten um die Veränderung zu berechnen
-        data = yf.download(tickers, period="1d", interval="1m", progress=False, group_by='ticker')
+        # Request 5 days of 2-minute interval data
+        data = yf.download(tickers, period="5d", interval="2m", progress=False, group_by='ticker')
         
         for ticker in tickers:
             try:
-                # Extrahiere DataFrame für einzelnen Ticker
+                # Handle single vs multi-index dataframe structure
                 df = data[ticker] if len(tickers) > 1 else data
+                df = df.dropna(how='all').ffill()
                 
-                if df.empty or len(df) < 2:
+                if df.empty or len(df) < 20: 
                     continue
                 
-                # Letzter Preis (Live)
-                current_price = float(df['Close'].iloc[-1])
+                prices = df['Close']
+                current_price = float(prices.iloc[-1])
+                prev_price = float(prices.iloc[-2])
                 
-                # Preis vor 5 Minuten (oder so weit zurück wie möglich)
-                lookback = 5 if len(df) >= 6 else len(df) - 1
-                old_price = float(df['Close'].iloc[-lookback])
+                # Indicators
+                rsi_series = calculate_rsi(prices, config.RSI_PERIOD)
+                current_rsi = float(rsi_series.iloc[-1])
                 
-                # Momentum berechnen
-                momentum_pct = ((current_price - old_price) / old_price) * 100
+                ema_short = calculate_ema(prices, 9)
+                ema_long = calculate_ema(prices, 20)
                 
+                current_ema_short = float(ema_short.iloc[-1])
+                current_ema_long = float(ema_long.iloc[-1])
+                
+                momentum_pct = ((current_price - prev_price) / prev_price) * 100
                 isin = isin_map.get(ticker)
-                if isin:
+                
+                # Trend Logic
+                trend = "NEUTRAL"
+                if current_price > current_ema_long: trend = "UP"
+                elif current_price < current_ema_long: trend = "DOWN"
+
+                if isin and not np.isnan(current_price):
                     results[isin] = {
                         "ticker": ticker,
-                        "current_price": current_price,
-                        "momentum_5m": momentum_pct
+                        "isin": isin, # <--- CRITICAL: passed back for execution
+                        "price": current_price,
+                        "rsi": current_rsi if not np.isnan(current_rsi) else 50,
+                        "ema_9": current_ema_short,
+                        "ema_20": current_ema_long,
+                        "momentum": momentum_pct,
+                        "trend": trend
                     }
-            except Exception as e:
-                pass # Einzelner Ticker Fehler ignorieren
-
+            except Exception:
+                continue
+                
     except Exception as e:
-        print(f"⚠️ Fehler beim Bulk-Download Yahoo: {e}")
-        return {}
-
+        print(f"⚠️ Yahoo API Critical Error: {e}")
+        
     return results
-
-def get_name_by_isin(isin):
-    # Einfache Rückgabe für Logging, falls Yahoo Name fehlt
-    return TICKER_MAPPING.get(isin, isin)

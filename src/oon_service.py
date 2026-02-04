@@ -46,37 +46,75 @@ async def scan_depot(page):
 
     # B) Bestand
     try:
+        # Wir suchen alle Zeilen in der Tabelle
         rows = await page.locator("tbody tr[role='row']").all()
+        
         for row in rows:
             try:
                 row_text = await row.inner_text()
+                
+                # Filter: Überspringe Zeilen, die eigentlich offene Orders sind (manchmal in der gleichen Tabelle)
                 if "Warten auf Ausführung" in row_text or "Bestens" in row_text or "Limit" in row_text:
                     continue 
+
+                # 1. NAME und ISIN finden
                 name_el = row.locator("a.tt-link").first
-                if await name_el.count() > 0: name = await name_el.inner_text()
+                name = "Unbekannt"
+                isin = "N/A"
+
+                if await name_el.count() > 0:
+                    name = await name_el.inner_text()
+                    # WICHTIG: ISIN aus der URL extrahieren (href='.../detail/US0378331005')
+                    href = await name_el.get_attribute("href")
+                    if href:
+                        isin_match = re.search(r'([A-Z]{2}[A-Z0-9]{9}\d)', href)
+                        if isin_match:
+                            isin = isin_match.group(1)
                 else:
+                    # Fallback, falls kein Link da ist (z.B. bei manchen Zertifikaten)
                     name_items = await row.locator("strong").all()
-                    if name_items: name = await name_items[0].inner_text()
-                    else: continue
+                    if name_items: 
+                        name = await name_items[0].inner_text()
+                    else: 
+                        continue # Wenn kein Name gefunden, Zeile überspringen
+
+                # 2. MENGE (Stückzahl)
                 qty_el = row.locator("[data-currency='STK']").first
                 qty = clean_amount(await qty_el.inner_text()) if await qty_el.count() > 0 else 0
+                
+                # 3. WERT (in EUR)
                 val_el = row.locator("[data-currency='EUR']").last
                 val_eur = clean_amount(await val_el.inner_text()) if await val_el.count() > 0 else 0
                 
+                # 4. PERFORMANCE (%)
                 perf_text = "N/A"
                 try:
+                    # Suche nach der Zelle mit % Zeichen
                     cells = await row.locator("td").all()
                     for cell in cells:
-                        if "%" in await cell.inner_text():
-                            perf_text = (await cell.inner_text()).replace("\n", "").strip()
+                        txt = await cell.inner_text()
+                        if "%" in txt and ("+" in txt or "-" in txt):
+                            perf_text = txt.replace("\n", "").strip()
                             break
                 except: pass
 
+                # Nur hinzufügen, wenn wir wirklich Aktien besitzen
                 if qty > 0:
-                    stock_entry = { "name": name.strip(), "qty": qty, "value_eur": val_eur, "performance_since_buy": perf_text }
+                    stock_entry = { 
+                        "name": name.strip(), 
+                        "isin": isin, 
+                        "qty": qty, 
+                        "value_eur": val_eur, 
+                        "performance_since_buy": perf_text 
+                    }
                     depot_data["stocks"].append(stock_entry)
-                    print(f"   ✅ Besitz: {stock_entry['name']} | {stock_entry['qty']} Stk. | Perf: {stock_entry['performance_since_buy']}")
-            except: continue
+                    print(f"   ✅ Besitz: {stock_entry['name']:<20} | ISIN: {stock_entry['isin']} | {stock_entry['qty']} Stk. | Perf: {stock_entry['performance_since_buy']}")
+            
+            except Exception as e:
+                # Einzelne Zeilenfehler fangen, damit der Scan nicht abbricht
+                # print(f"Debug Row Error: {e}") 
+                continue
+
     except Exception as e:
         print(f"⚠️ Scan Fehler (Bestand): {e}")
 

@@ -1,166 +1,228 @@
 import config
 from datetime import datetime
-from market_data import get_market_snapshot, TICKER_MAPPING
+from market_data import get_market_snapshot
 
 def is_market_open(ticker):
-    """
-    Prüft anhand der Uhrzeit (Systemzeit CET), 
-    ob die entsprechende Börse geöffnet ist.
-    """
+    """Checks market hours (CET)."""
     now = datetime.now()
-    minutes_since_midnight = now.hour * 60 + now.minute
+    if now.weekday() >= 5: return False # Weekend
     
-    # 1. WIEN (.VI) & DEUTSCHLAND (.DE) -> 09:00 (540) bis 17:30 (1050)
+    minutes = now.hour * 60 + now.minute
+    
+    # DAX / ATX (09:00 - 17:40)
     if ticker.endswith(".VI") or ticker.endswith(".DE"):
-        return 540 <= minutes_since_midnight <= 1050
+        return 540 <= minutes <= 1060 
         
-    # 2. USA (ohne Suffix) -> 15:30 (930) bis 22:00 (1320)
-    if "." not in ticker:
-        return 930 <= minutes_since_midnight <= 1320
+    # US Market (15:30 - 22:00)
+    if "." not in ticker or "US" in ticker:
+        return 930 <= minutes <= 1320
         
     return True
 
 def calculate_algo_decisions(depot_data):
-    """
-    Analysiert das Depot und Marktdaten.
-    Berechnet die ECHTE Performance basierend auf Yahoo-Live-Daten,
-    um die 15min Verzögerung des Spiels zu umgehen.
-    """
-    print("\n🧮 Starte algorithmische Analyse (Real-Time PnL)...")
+    print("\n" + "="*80)
+    print(f"🧠 STRATEGY ENGINE | {datetime.now().strftime('%H:%M:%S')} | Trend-Following & Momentum")
+    print("="*80)
     
     decisions = []
-    market_data = get_market_snapshot() # Live Daten von Yahoo
+    market_data = get_market_snapshot()
     
     if not market_data:
-        print("⚠️ Keine Marktdaten. Abbruch.")
+        print("❌ CRITICAL: No Market Data received from Yahoo Finance.")
         return []
 
-    # ----------------------------------------------------
-    # A. VERKAUFS-LOGIK (Stop Loss & Take Profit mit LIVE DATEN)
-    # ----------------------------------------------------
-    
+    # --- 1. PORTFOLIO ANALYSIS ---
+    print(f"{'NAME':<20} | {'STATUS':<10} | {'P/L %':<7} | {'RSI':<5} | {'TREND':<7} | {'ACTION / REASON'}")
+    print("-" * 80)
+
     pending_sell_names = [o['name'] for o in depot_data['open_orders'] if o['type'] == 'SELL']
     
-    # Mapping umkehren: Name/Ticker -> ISIN finden für Depot-Abgleich
-    # Wir brauchen einen Weg, vom Depot-Eintrag zum Yahoo-Ticker zu kommen
-    # Da das Spiel oft keine ISIN im Bestand anzeigt, matchen wir über den Namen/Ticker-Teil
-    
     for stock in depot_data['stocks']:
-        stock_name = stock["name"]
-        qty = stock["qty"]
-        current_value_game = stock["value_eur"] # Verzögerter Wert aus dem Spiel
+        name = stock["name"]
+        isin = stock.get("isin", "N/A") # Ensure your oon_service extracts ISINs for stocks too!
         
-        # Check: Läuft schon Verkauf?
-        is_already_selling = any(p_name in stock_name or stock_name in p_name for p_name in pending_sell_names)
-        if is_already_selling:
+        # 1. CHECK LOCKS
+        # Looser matching for pending orders
+        is_locked = any(p in name or name in p for p in pending_sell_names)
+        if is_locked:
+            print(f"{name[:19]:<20} | 🔒 LOCKED | {stock.get('performance_since_buy', 'N/A'):<7} | {'-':<5} | {'-':<7} | Pending Sell Order")
             continue
-            
-        # 1. Kaufpreis rekonstruieren (Reverse Engineering aus Spiel-Daten)
-        # Formel: BuyPrice = CurrentValue / (1 + Perf/100) / Qty
-        buy_price_per_share = 0.0
+
+        # 2. MATCH DATA (Try ISIN first, then Name)
+        ticker_data = None
+        
+        # Method A: ISIN Match (Best)
+        if isin in market_data:
+            ticker_data = market_data[isin]
+        
+        # Method B: Name/Ticker Fuzzy Match (Fallback)
+        if not ticker_data:
+            for m_isin, data in market_data.items():
+                simple_ticker = data['ticker'].split(".")[0] # e.g. "AMZN" from "AMZN"
+                # Check if Ticker is in Name (e.g. "NVDA" in "NVIDIA Corp") - rare
+                # Check if Name contains Ticker (e.g. "Amazon" vs "AMZN") - hard
+                # Use Mapping from market_data.py to be safe
+                if simple_ticker == name or simple_ticker in name:
+                    ticker_data = data
+                    break
+
+        # 3. GET PERFORMANCE
+        game_perf_pct = 0.0
         try:
-            raw_perf = stock.get("performance_since_buy", "0")
-            game_perf_pct = float(raw_perf.replace("%", "").replace(",", ".").replace("+", "").strip())
+            raw_perf = stock.get("performance_since_buy", "0").replace("%", "").replace(",", ".").replace("+", "").strip()
+            game_perf_pct = float(raw_perf)
+        except: pass
+
+        # 4. ANALYZE
+        if not ticker_data:
+            # Fallback Logic (Data Missing)
+            action = "HOLD"
+            reason = "No Live Data"
             
-            if qty > 0 and current_value_game > 0:
-                total_buy_cost = current_value_game / (1 + (game_perf_pct / 100.0))
-                buy_price_per_share = total_buy_cost / qty
-        except:
-            pass # Fallback, falls Berechnung scheitert
-
-        # 2. Live Kurs finden
-        live_price = 0.0
-        ticker_symbol = "Unknown"
-        
-        # Wir suchen im market_data dictionary nach einem passenden Ticker
-        # Wir matchen: Ist der Ticker-Name (z.B. "VOE") im Spiel-Namen enthalten?
-        matched_isin = None
-        for isin, data in market_data.items():
-            simple_ticker = data['ticker'].split(".")[0] # "VOE.VI" -> "VOE"
-            if simple_ticker in stock_name or stock_name in data['ticker']:
-                live_price = data['current_price']
-                ticker_symbol = data['ticker']
-                matched_isin = isin
-                break
-        
-        # 3. Echte Performance berechnen
-        real_perf_pct = 0.0
-        used_source = "GAME (Delayed)" # Default
-        
-        if live_price > 0 and buy_price_per_share > 0:
-            # Wir haben Live Daten!
-            real_perf_pct = ((live_price - buy_price_per_share) / buy_price_per_share) * 100.0
-            used_source = "YAHOO (Live)"
-        else:
-            # Fallback auf Spiel-Daten
-            real_perf_pct = game_perf_pct
-        
-        print(f"   📊 {stock_name:<15} | Buy: {buy_price_per_share:.2f}€ | Live: {live_price:.2f}€ | PnL: {real_perf_pct:+.2f}% [{used_source}]")
-
-        # 4. Signale generieren
-        
-        # Prüfen ob Markt offen ist für diesen Ticker (nur wenn wir Ticker kennen)
-        if ticker_symbol != "Unknown" and not is_market_open(ticker_symbol):
-             # print(f"      Markt geschlossen für {stock_name}")
-             continue
-
-        # TAKE PROFIT
-        if real_perf_pct >= config.TAKE_PROFIT_PCT:
-            decisions.append({
-                "aktion": "SELL",
-                "name": stock_name,
-                "grund": f"Take Profit ({used_source}): {real_perf_pct:.2f}% >= {config.TAKE_PROFIT_PCT}%"
-            })
-            continue
+            # Hard Safety Net even without live data
+            if game_perf_pct <= config.STOP_LOSS_HARD_PCT:
+                action = "SELL"
+                reason = "Emergency Stop Loss (Blind)"
             
-        # STOP LOSS
-        if real_perf_pct <= config.STOP_LOSS_PCT:
-            decisions.append({
-                "aktion": "SELL",
-                "name": stock_name,
-                "grund": f"Stop Loss ({used_source}): {real_perf_pct:.2f}% <= {config.STOP_LOSS_PCT}%"
-            })
+            print(f"{name[:19]:<20} | ⚠️ BLIND  | {game_perf_pct:+.2f}%  | {'?':<5} | {'?':<7} | {action}: {reason}")
+            if action == "SELL":
+                decisions.append({"aktion": "SELL", "name": name, "grund": reason})
             continue
 
-    # ----------------------------------------------------
-    # B. KAUF-LOGIK (Bleibt gleich: Momentum)
-    # ----------------------------------------------------
+        # Valid Data Found
+        price = ticker_data['price']
+        rsi = ticker_data['rsi']
+        ema9 = ticker_data['ema_9']
+        trend = ticker_data['trend'] # UP / DOWN / NEUTRAL
+        
+        action = "HOLD"
+        reason = "Strategy fits"
+
+        # --- LOGIC ---
+        
+        # A. Stop Loss (Prioritize Safety)
+        if game_perf_pct <= config.STOP_LOSS_HARD_PCT:
+            action = "SELL"
+            reason = f"🛑 Stop Loss Hit ({game_perf_pct}%)"
+            
+        # B. Take Profit (Greed)
+        elif game_perf_pct >= config.TAKE_PROFIT_HARD_PCT:
+            action = "SELL"
+            reason = f"💰 Take Profit Hit ({game_perf_pct}%)"
+            
+        # C. Technical Exit (Weakness)
+        elif rsi > config.RSI_OVERBOUGHT:
+            action = "SELL"
+            reason = f"Overbought RSI ({rsi:.0f})"
+        
+        elif game_perf_pct > 0.5 and price < ema9:
+            action = "SELL"
+            reason = "Trend Broken (Price < EMA9)"
+
+        # Output Row
+        print(f"{name[:19]:<20} | ✅ LIVE   | {game_perf_pct:+.2f}%  | {rsi:<5.1f} | {trend:<7} | {action}: {reason}")
+        
+        if action == "SELL":
+             decisions.append({"aktion": "SELL", "name": name, "grund": reason})
+
+
+    # --- 2. MARKET SCAN ---
+    print("\n" + "-"*80)
     cash = depot_data['cash']
-    pending_buy_isins = [o['isin'] for o in depot_data['open_orders'] if o['type'] == 'BUY']
+    print(f"🔭 MARKET SCAN | Cash: {cash:.2f} €")
     
-    if cash >= config.MIN_CASH_FOR_NEW_TRADE:
-        best_stock_isin = None
-        best_momentum = -999.0
+    if cash < config.MIN_CASH_FOR_NEW_TRADE:
+        print("   ⚠️ Insufficient Cash to trade.")
+    else:
+        candidates = []
+        pending_buy_isins = [o['isin'] for o in depot_data['open_orders'] if o['type'] == 'BUY']
         
-        for isin, data in market_data.items():
-            ticker_name = data['ticker']
-            
-            if not is_market_open(ticker_name): continue
-            
-            mom_5m = data['momentum_5m']
-            
-            # Besitz-Check
-            simple_ticker = ticker_name.split(".")[0]
-            already_owned = any(simple_ticker in s['name'] for s in depot_data['stocks'])
-            
-            if already_owned or isin in pending_buy_isins: continue
+        print(f"{'TICKER':<10} | {'PRICE':<8} | {'RSI':<5} | {'TREND':<7} | {'STATUS'}")
 
-            # Momentum Filter (0.3% - 3.0%)
-            if 0.3 <= mom_5m <= 3.0:
-                print(f"      👀 Kandidat: {ticker_name} (Momentum 5m: {mom_5m:.2f}%)")
-                if mom_5m > best_momentum:
-                    best_momentum = mom_5m
-                    best_stock_isin = isin
-        
-        if best_stock_isin:
-            invest_amount = min(cash, config.MAX_INVEST_PER_STOCK)
-            if invest_amount >= config.MIN_TRADE_VOLUME:
-                decisions.append({
-                    "aktion": "BUY",
-                    "isin": best_stock_isin,
-                    "name": market_data[best_stock_isin]['ticker'],
-                    "betrag_eur": invest_amount,
-                    "grund": f"Starkes Momentum ({best_momentum:.2f}% in 5min)"
-                })
+        for isin, data in market_data.items():
+            ticker = data['ticker']
+            
+            # Skip if market closed
+            if not is_market_open(ticker): 
+                # Don't spam log with closed markets, maybe just 1-2 lines or skip
+                continue
+
+            # Skip if owned
+            simple_ticker = ticker.split(".")[0]
+            already_owned = any(simple_ticker in s['name'] for s in depot_data['stocks'])
+            if already_owned or isin in pending_buy_isins:
+                continue
+
+            # Strategy Check
+            score = 0
+            rsi = data['rsi']
+            price = data['price']
+            ema20 = data['ema_20']
+            
+            status_msg = "Wait"
+
+            # 1. Trend Filter
+            if price > ema20: score += 1
+            else: status_msg = "Downtrend"
+            
+            # 2. RSI Filter
+            if 50 <= rsi <= 70: score += 2
+            elif rsi > 70: status_msg = "Overbought"
+            elif rsi < 50: status_msg = "Weak Mom."
+
+            if score >= 3:
+                status_msg = "✅ BUY SIGNAL"
+                candidates.append(data)
+                
+            print(f"{ticker:<10} | {price:<8.2f} | {rsi:<5.1f} | {data['trend']:<7} | {status_msg}")
+
+        # --- 2. MARKET SCAN (Inside calculate_algo_decisions) ---
+        # ... (Keep the scan loop that populates 'candidates')
     
-    return decisions
+        # REPLACE THE "Pick Winner" SECTION WITH THIS:
+    
+        if candidates:
+            # 1. Rank by RSI (Lower is better within our 50-70 range)
+            candidates.sort(key=lambda x: x['rsi'])
+            
+            # 2. Determine how many we can afford / want to buy
+            num_candidates = len(candidates)
+            target_count = min(num_candidates, config.MAX_NEW_POSITIONS_PER_CYCLE)
+            
+            # 3. Calculate Budget per Stock
+            # We try to split cash equally, but cap it at MAX_INVEST_PER_STOCK
+            ideal_budget_per_stock = cash / target_count
+            
+            # Clamp the budget between our Min and Max rules
+            actual_budget = max(config.MIN_TRADE_VOLUME, min(ideal_budget_per_stock, config.MAX_INVEST_PER_STOCK))
+            
+            print(f"\n⚖️ ALLOCATION: Found {num_candidates} signals. Attempting to buy top {target_count}.")
+            print(f"   Target Budget per Stock: {actual_budget:.2f} €")
+    
+            current_temp_cash = cash
+            for i in range(target_count):
+                best = candidates[i]
+                
+                # Final check: Can we still afford this?
+                if current_temp_cash >= config.MIN_TRADE_VOLUME:
+                    invest_amount = min(actual_budget, current_temp_cash)
+                    
+                    # Double check to not leave a "tiny" amount of cash behind 
+                    # (e.g., if 850€ is left, just invest it all instead of trying to save 50€)
+                    if (current_temp_cash - invest_amount) < config.MIN_TRADE_VOLUME:
+                        invest_amount = current_temp_cash
+    
+                    decisions.append({
+                        "aktion": "BUY",
+                        "isin": best['isin'], # Make sure isin is passed into the dict in the loop
+                        "name": best['ticker'],
+                        "betrag_eur": invest_amount,
+                        "grund": f"Trend UP + RSI {best['rsi']:.1f} (Rank {i+1})"
+                    })
+                    
+                    print(f"   ✅ Added to execution: {best['ticker']} ({invest_amount:.2f} €)")
+                    current_temp_cash -= invest_amount
+                else:
+                    print(f"   ⚠️ Skipping {best['ticker']}: Insufficient remaining cash ({current_temp_cash:.2f} €)")
+    
+        return decisions
