@@ -54,7 +54,7 @@ MAX_NEW_POSITIONS_PER_CYCLE = 3
 
 # --- 3-PHASE-LOOP STRATEGY ---
 MAX_AI_CANDIDATES = 15         
-MIN_FINAL_SCORE = 75           # Etwas toleranter für High-Risk Aktien
+MIN_FINAL_SCORE = 78           # Etwas toleranter für High-Risk Aktien
 AI_WEIGHT = 0.5                # Balance zwischen Tech (Momentum) und AI
 TECH_WEIGHT = 0.5              
 PORTFOLIO_DIVERSITY = 5        # Weniger Aktien, dafür größere Positionen (Konzentration)

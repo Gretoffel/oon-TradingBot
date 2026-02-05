@@ -13,6 +13,7 @@ TICKER_MAPPING = {
     "US7672921050": "RIOT",  # Riot Platforms
     "US15135B1017": "CLSK",  # CleanSpark
     "US83406F1021": "SOFI",  # SoFi Technologies
+    "US7707001027": "HOOD",  # Robinhood
     "US67066G1040": "NVDA",  # Nvidia (Muss bleiben)
     "US88160R1014": "TSLA",  # Tesla (Muss bleiben)
     "US0378331005": "AAPL",  # Apple
@@ -24,6 +25,11 @@ TICKER_MAPPING = {
     "US60770K1079": "MRNA",  # Moderna
     "US72919P2020": "PLUG",  # Plug Power (Wasserstoff Hype)
     "US29355A1079": "ENPH",  # Enphase Energy
+    "US86800U3023": "SMCI",  # Super Micro Computer (AI High Beta)
+    "US0420682058": "ARM",   # ARM Holdings
+    "LU1778762911": "SPOT",  # Spotify
+    "US70450Y1038": "PYPL",  # PayPal
+    "US4581401001": "INTC",  # Intel
 
     # --- US Big Tech ---
     "US0231351067": "AMZN",
@@ -32,6 +38,8 @@ TICKER_MAPPING = {
     "US22788C1053": "CRWD",
     "US11135F1012": "AVGO",
     "US64110L1061": "NFLX",
+    "US0382221051": "AMAT",
+    "US79466L3024": "CRM",
 
     # --- ATX Prime (Österreich - Pflichtprogramm, aber selektiv) ---
     "AT0000652011": "EBS.VI", 
@@ -41,12 +49,19 @@ TICKER_MAPPING = {
     "AT0000606306": "RBI.VI", 
     "AT0000730007": "ANDR.VI", 
     "AT0000BAWAG2": "BG.VI",
+    "AT0000644505": "LNZ.VI",   # Lenzing
+    "AT0000831706": "WIE.VI",   # Wienerberger
+    "AT0000APOST4": "POST.VI",  # Post
 
     # --- DAX 40 (Momentum Picks) ---
     "DE0007030009": "RHM.DE",  # Rheinmetall (Defense Hype)
     "DE0007164600": "SAP.DE",  
     "DE0007236101": "SIE.DE",  # Siemens
     "DE0006231004": "IFX.DE",  # Infineon
+    "NL0010273215": "ASML.AS", # ASML
+    "NL0000235190": "AIR.DE",  # Airbus
+    "DE0007100000": "MBG.DE",  # Mercedes
+    "DE0008404005": "ALV.DE",  # Allianz
 }
 
 # Fallback-Mapping: Wenn ISIN nicht gescannt wird, suche nach dem Namen
@@ -66,11 +81,22 @@ NAME_TO_ISIN_FALLBACK = {
     "meta": "US30303M1027",
     "google": "US02079K3059",
     "amd": "US0079031078",
+    "smci": "US86800U3023",
+    "arm": "US0420682058",
+    "robinhood": "US7707001027",
+    "spotify": "LU1778762911",
+    "paypal": "US70450Y1038",
+    "asml": "NL0010273215",
+    "airbus": "NL0000235190",
+    "mercedes": "DE0007100000",
     "erste group": "AT0000652011",
     "omv": "AT0000743059",
     "voestalpine": "AT0000937503",
     "verbund": "AT0000746409",
     "raiffeisen": "AT0000606306",
+    "lenzing": "AT0000644505",
+    "wienerberger": "AT0000831706",
+    "post": "AT0000APOST4",
 }
 
 def get_isin_by_name(name: str) -> str | None:
