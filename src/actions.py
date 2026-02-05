@@ -77,12 +77,22 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
         await page.type(search_input_sel, search_term, delay=100) 
         await asyncio.sleep(2.5)
         
-        # Erster Treffer auswählen
-        await page.keyboard.press("ArrowDown")
-        await asyncio.sleep(0.3)
-        await page.keyboard.press("ArrowDown") # Sichergehen dass wir in der Liste sind
-        await asyncio.sleep(0.3)
-        await page.keyboard.press("Enter")
+        # Wait for search results
+        search_dropdown = page.locator(".tt-dropdown-menu")
+        try:
+            await search_dropdown.wait_for(state="visible", timeout=5000)
+            first_hit = page.locator(".tt-suggestion").first
+            if await first_hit.count() > 0:
+                print("   -> Klicke ersten Suchtreffer...")
+                await first_hit.click()
+            else:
+                print("   ⚠️ Keine Suchtreffer via Dropdown. Versuche Enter...")
+                await page.keyboard.press("Enter")
+        except:
+            print("   ⚠️ Timeout beim Warten auf Suchergebnisse. Versuche Keyboard-Fallback...")
+            await page.keyboard.press("ArrowDown")
+            await asyncio.sleep(0.3)
+            await page.keyboard.press("Enter")
         
         # C. DATEN EINGABE
         qty_selector = "input[formcontrolname='numOfShares']"
@@ -197,8 +207,13 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
             # Check for hidden input timeout (Blacklist candidate)
             # "waiting for locator(...) to be visible" -> Timeout
             if "Timeout" in err_msg and "numOfShares" in err_msg:
-                print("⛔ Input-Feld Timeout -> Vermutlich gesperrt/hidden (Blacklist).")
-                add_to_blacklist(search_term, f"Input Timeout / Not Tradeable ({real_name})")
+                from market_data import is_market_open, TICKER_MAPPING
+                ticker = TICKER_MAPPING.get(search_term, search_term)
+                if is_market_open(ticker):
+                    print("⛔ Input-Feld Timeout while market open -> Vermutlich gesperrt/hidden (Blacklist).")
+                    add_to_blacklist(search_term, f"Input Timeout / Not Tradeable ({real_name})")
+                else:
+                    print(f"🕒 Input-Feld Timeout while market is CLOSED ({ticker}). Skipping Blacklist.")
 
             await click_cancel_button(page)
             return "CANCELLED_OTHER"
@@ -209,7 +224,7 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
         return "CANCELLED_OTHER"
 
 # --- SELL ORDER ---
-async def execute_sell_order(page, stock_name, quantity, reason="-"):
+async def execute_sell_order(page, stock_name, quantity, reason="-", profit=None):
     print(f"\n📉 VERKAUF-START: {stock_name} (Menge: {quantity})")
     
     try:
@@ -273,7 +288,7 @@ async def execute_sell_order(page, stock_name, quantity, reason="-"):
             await success_btn.wait_for(state="visible", timeout=10000)
             print("✅ VERKAUF ERFOLGREICH.")
             
-            log_success("SELL", stock_name, "N/A", quantity, 0, reason)
+            log_success("SELL", stock_name, "N/A", quantity, 0, reason, profit)
 
             await success_btn.first.click()
         except:

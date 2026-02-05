@@ -138,6 +138,7 @@ with tab2:
                 "Name": st.column_config.TextColumn("Name", width="medium"),
                 "Menge": st.column_config.NumberColumn("Stk."),
                 "Preis": st.column_config.NumberColumn("Kurs (€)", format="%.2f €"),
+                "Profit": st.column_config.TextColumn("Profit", width="small"),
                 "Grund": st.column_config.TextColumn("KI Begründung", width="large"),
                 "ISIN": st.column_config.TextColumn("ISIN", width="small"),
             }

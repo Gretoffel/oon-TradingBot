@@ -78,6 +78,20 @@ async def scan_depot(page):
                     else: 
                         continue # Wenn kein Name gefunden, Zeile überspringen
 
+                # --- NEW: ISIN RESOLUTION FALLBACK ---
+                if isin == "N/A" or not isin:
+                    from market_data import TICKER_MAPPING, get_isin_by_name
+                    # Try fuzzy matching by name
+                    resolved_isin = get_isin_by_name(name)
+                    if resolved_isin:
+                        isin = resolved_isin
+                    else:
+                        # Try exact ticker match if name is just a ticker
+                        for t_isin, t_ticker in TICKER_MAPPING.items():
+                            if t_ticker.lower() in name.lower() or name.lower() in t_ticker.lower():
+                                isin = t_isin
+                                break
+
                 # 2. MENGE (Stückzahl)
                 qty_el = row.locator("[data-currency='STK']").first
                 qty = clean_amount(await qty_el.inner_text()) if await qty_el.count() > 0 else 0

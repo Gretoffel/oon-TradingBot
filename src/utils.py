@@ -16,6 +16,19 @@ def clean_amount(text):
     try: return float(cleaned)
     except: return 0.0
 
+def calculate_fee(amount_eur):
+    """
+    Berechnet die Transaktionsgebühren nach OÖN-Börsespiel-Regeln:
+    - 0,25 % vom Transaktionswert
+    - Mindestspesen: 17 Euro
+    - Zusätzlich 3 Euro pro Order
+    """
+    if amount_eur <= 0: return 0.0
+    
+    base_fee = max(17.0, amount_eur * 0.0025)
+    total_fee = base_fee + 3.0
+    return total_fee
+
 def extract_json_list(text):
     """Extrahiert eine JSON-Liste aus einem Textblock."""
     if not text: return None
@@ -62,7 +75,7 @@ def print_analysis_summary(decisions):
             
         print("-" * 40)
 
-def log_success(action, name, isin, amount, price, reason):
+def log_success(action, name, isin, amount, price, reason, profit=None):
     """Schreibt erfolgreiche Aktionen in eine Tages-Logdatei."""
     try:
         if not os.path.exists(config.LOG_DIR):
@@ -80,6 +93,7 @@ def log_success(action, name, isin, amount, price, reason):
             f"ISIN: {isin:<12} | "
             f"QTY: {str(amount):<5} | "
             f"PRICE_EST: {str(price):<8} | "
+            f"PROFIT: {profit if profit is not None else 'N/A'} | " 
             f"REASON: {reason}\n"
         )
         
@@ -138,6 +152,7 @@ def get_transaction_history():
                     "ISIN": "N/A",
                     "Menge": 0,
                     "Preis": 0.0,
+                    "Profit": "N/A",
                     "Grund": ""
                 }
                 
@@ -151,6 +166,12 @@ def get_transaction_history():
                         elif "ISIN:" in p: entry["ISIN"] = p.split("ISIN:")[1].strip()
                         elif "QTY:" in p: entry["Menge"] = clean_amount(p.split("QTY:")[1])
                         elif "PRICE_EST:" in p: entry["Preis"] = clean_amount(p.split("PRICE_EST:")[1])
+                        elif "PROFIT:" in p: 
+                            raw_profit = p.split("PROFIT:")[1].strip()
+                            if raw_profit != "N/A":
+                                entry["Profit"] = f"{float(raw_profit):+.2f} €"
+                            else:
+                                entry["Profit"] = "-"
                         elif "REASON:" in p: entry["Grund"] = p.split("REASON:")[1].strip()
                     
                     history.append(entry)
