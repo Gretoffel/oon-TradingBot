@@ -80,12 +80,25 @@ async def run_bot_cycle():
                 current_cash = depot_data["cash"]
 
             # --- PHASE 3 (SYNTHESIS): AI DEEP DIVE & BUY OPS ---
-            # Get Top candidates from the snapshot we already have
-            top_candidates = list(tech_snapshot.values())[:config.MAX_AI_CANDIDATES]
-            print(f"   📊 FUNNEL: Passing top {len(top_candidates)} tech candidates to AI Deep-Dive...")
+            # 1. Budget & Portfolio Check (Skip AI if buying is not possible)
+            pending_buy_amount = sum(o.get('betrag_eur', 0) for o in depot_data['open_orders'] if o['type'] == 'BUY')
+            available_cash = current_cash - pending_buy_amount
+            current_slots = len(depot_data['stocks'])
+            slots_left = config.PORTFOLIO_DIVERSITY - current_slots
             
-            remote_manager.update_status("Synthesis", "KI führt Deep-Dive durch...", balance=current_cash)
-            ai_matrix = await analyze_candidates_deep_dive(page, context, top_candidates)
+            if available_cash < config.MIN_CASH_FOR_NEW_TRADE:
+                print(f"   💰 Budget ({available_cash:.2f} €) reicht nicht für neue Käufe (Min: {config.MIN_CASH_FOR_NEW_TRADE} €). Überspringe KI.")
+                ai_matrix = []
+            elif slots_left <= 0:
+                print(f"   📁 Portfolio voll ({current_slots}/{config.PORTFOLIO_DIVERSITY}). Überspringe KI.")
+                ai_matrix = []
+            else:
+                # Get Top candidates from the snapshot we already have
+                top_candidates = list(tech_snapshot.values())[:config.MAX_AI_CANDIDATES]
+                print(f"   📊 FUNNEL: Passing top {len(top_candidates)} tech candidates to AI Deep-Dive...")
+                
+                remote_manager.update_status("Synthesis", "KI führt Deep-Dive durch...", balance=current_cash)
+                ai_matrix = await analyze_candidates_deep_dive(page, context, top_candidates)
             
             final_buys = synthesize_decisions(depot_data, tech_snapshot, ai_matrix)
             

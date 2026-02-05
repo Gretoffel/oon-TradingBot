@@ -103,14 +103,14 @@ async def check_portfolio_safety(page, context, stocks):
     CURRENT DATE/TIME: {current_time} CET.
     TASK: Portfolio Defense Check.
     
-    Act as a professional risk manager. Research the following stocks for CRITICAL news from the last 24-48 hours that would justify an IMMEDIATE EMERGENCY SALE (e.g., bankruptcy filing, major fraud scandal, CEO resignation, catastrophic earnings crash, multi-billion dollar lawsuit).
+    Act as a professional risk manager. Research the following stocks for CRITICAL news from the last 24-48 hours that would justify an IMMEDIATE EMERGENCY SALE.
     
     STOCKS TO CHECK:
     {json.dumps(stock_list)}
     
     INSTRUCTIONS:
     1. Be objective and factual.
-    2. Only suggest 'EMERGENCY_SELL' if there is a severe 'Red Flag' news event.
+    2. Only suggest 'EMERGENCY_SELL' if there is a 'Red Flag' news event.
     3. If there is no such event, suggest 'HOLD'.
     4. Provide a very brief reason (max 10 words) for SELL decisions.
     
