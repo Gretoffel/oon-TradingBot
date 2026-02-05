@@ -18,17 +18,18 @@ OON_DEPOT_URL = "https://www.oon-boersespiel.at/de/boersespiel.html#/personal/po
 
 # --- MARKET TIMING ---
 # Closing Times (Local Time CET)
-# AT/DE: 17:30 Continuous Trading Ends -> 17:35 Auction Ends. We set 17:30 as reference check.
-# US: 22:00 Close
 MARKET_CLOSE_HOUR_EU = 17
 MARKET_CLOSE_MINUTE_EU = 30
 MARKET_CLOSE_HOUR_US = 22
 MARKET_CLOSE_MINUTE_US = 0
 
-# Sell everything 15 mins before close to avoid auction uncertainty & stuck funds
-MINUTES_BEFORE_CLOSE_TO_SELL = 15
-# Don't buy new stocks if less than 20 mins to close
-MINUTES_BEFORE_CLOSE_NO_BUY = 25 
+# SWING TRADING UPDATE:
+# Wir verkaufen NICHT mehr automatisch vor Börsenschluss.
+# Setze auf 0 oder -1, um EOD-Verkauf zu deaktivieren.
+MINUTES_BEFORE_CLOSE_TO_SELL = 0 
+
+# Don't buy new stocks right before close, but holding is fine
+MINUTES_BEFORE_CLOSE_NO_BUY = 15 
 
 # Settings
 USER_DATA_DIR = os.path.join(PROJECT_ROOT, "google_session")
@@ -37,55 +38,56 @@ JSON_DIR = os.path.join(PROJECT_ROOT, "json")
 SESSION_LOG_FILE = os.path.join(LOG_DIR, "session_live.log")
 BLACKLIST_FILE = os.path.join(JSON_DIR, "blacklist_stocks.json")
 
-# Transaction Fees (deprecated, use utils.calculate_fee)
-TRANSACTION_FEE_BUY = 0.0 
-TRANSACTION_FEE_SELL = 0.0
+# Transaction Fees
+TRANSACTION_FEE_BUY = 20.0 
+TRANSACTION_FEE_SELL = 20.0
 
 # --- DAY TRADING SPEED ---
-# Increased frequency for better entry/exit
 SUCCESS_WAIT_SECONDS = 15 * 60
 ERROR_WAIT_SECONDS = 5           
 
 # --- RISK MANAGEMENT ---
-MIN_TRADE_VOLUME = 6000.0  # High min volume needed due to ~20€+ fees
-MAX_INVEST_PER_STOCK = 10000.0 # Reduced slightly to allow diversification
+MIN_TRADE_VOLUME = 6000.0  
+MAX_INVEST_PER_STOCK = 11500.0 # Leicht erhöht, um aggressiver zu investieren
 MIN_CASH_FOR_NEW_TRADE = 6000.0 
 MAX_NEW_POSITIONS_PER_CYCLE = 3  
 
 # --- 3-PHASE-LOOP STRATEGY ---
-MAX_AI_CANDIDATES = 10         # Number of top tech stocks sent to AI
-MIN_FINAL_SCORE = 75           # Threshold for BUY execution
-AI_WEIGHT = 0.6                # Importance of AI Matrix
-TECH_WEIGHT = 0.4              # Importance of Technical Score
-PORTFOLIO_DIVERSITY = 7        # Target number of stocks in depot
-EARNINGS_DAYS_THRESHOLD = 3    # Don't buy if earnings within 3 days
+MAX_AI_CANDIDATES = 15         
+MIN_FINAL_SCORE = 75           # Etwas toleranter für High-Risk Aktien
+AI_WEIGHT = 0.5                # Balance zwischen Tech (Momentum) und AI
+TECH_WEIGHT = 0.5              
+PORTFOLIO_DIVERSITY = 5        # Weniger Aktien, dafür größere Positionen (Konzentration)
+EARNINGS_DAYS_THRESHOLD = 1    # Nur warnen, wenn Earnings morgen sind (Risikoakzeptanz)
 
-# --- STRATEGY SETTINGS ---
-# Hard Limits (Safety Net - Fallback wenn keine ATR-Daten)
-TAKE_PROFIT_HARD_PCT = 8.0    # Increased to let winners run (was 2.5)
-STOP_LOSS_HARD_PCT = -2.0     # Tighter stop loss to prevent big losses
+# --- STRATEGY SETTINGS (SWING MODE) ---
+# Hard Limits - Gewinne laufen lassen!
+TAKE_PROFIT_HARD_PCT = 50.0    # "The Sky is the Limit" - Kein früher Verkauf
+STOP_LOSS_HARD_PCT = -5.0      # Mehr Luft zum Atmen bei Volatilität
 
 # ATR-basiertes Risikomanagement
-ATR_STOP_LOSS_MULTIPLIER = 1.5    # Stop-Loss = Entry - (ATR × 1.5)
-ATR_TAKE_PROFIT_MULTIPLIER = 2.5  # Take-Profit = Entry + (ATR × 2.5)
+ATR_STOP_LOSS_MULTIPLIER = 2.0    # Weiterer Stop
+ATR_TAKE_PROFIT_MULTIPLIER = 4.0  # Weiteres Ziel
 
 # Trailing Stop Einstellungen
-TRAILING_STOP_ACTIVATE_PCT = 0.8   # Activate earlier (was 0.8), but high enough to cover fees
-TRAILING_STOP_LOCK_IN_PCT = 0.3    # Lock-in 0.3% unter aktuellem Gewinn
+# Wir aktivieren den Trailing Stop erst später, um nicht bei Rauschen rauszufliegen
+TRAILING_STOP_ACTIVATE_PCT = 2.5   # Erst ab 2.5% Gewinn absichern
+TRAILING_STOP_LOCK_IN_PCT = 1.0    # 1% Gewinn sichern, Rest Raum geben
 
-# Technical Indicators (Refined for 5m intervals)
-RSI_PERIOD = 14                # Standard Period
-RSI_OVERBOUGHT = 70            # Standard Overbought
+# Technical Indicators
+RSI_PERIOD = 14                
+RSI_OVERBOUGHT = 85            # Erst bei extremer Überhitzung warnen
 RSI_OVERSOLD = 30       
-EMA_FAST = 9                   # Fast Trend
-EMA_SLOW = 21                  # Slow Trend (Noise reduction)
+EMA_FAST = 9                   
+EMA_SLOW = 21                  
 
-# Scoring Neutral Zones
-RSI_SWEET_SPOT_MIN = 40
-RSI_SWEET_SPOT_MAX = 60
+# Scoring Zones (Aggressive Momentum)
+# Wir suchen Aktien, die bereits laufen (RSI > 50 ist gut!)
+RSI_SWEET_SPOT_MIN = 45
+RSI_SWEET_SPOT_MAX = 80 # Momentum erlauben!
 
 # Volumen-Filter
-MIN_VOLUME_RATIO = 1.2  
+MIN_VOLUME_RATIO = 1.1  
 
 # AI Studio URL
 AI_STUDIO_URL = "https://aistudio.google.com/app/prompts/new_chat"
