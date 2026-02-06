@@ -79,7 +79,9 @@ async def main_loop():
                 last_ai_run = time.time()
                 print(f"💤 Full Cycle fertig. Schlafe {CHECK_INTERVAL_SECONDS}s bis Quick Check...")
             else:
-                print(f"💤 Quick Check fertig. Schlafe {CHECK_INTERVAL_SECONDS}s...")
+                time_since_ai = time.time() - last_ai_run
+                next_ai_in = max(0, int(AI_CYCLE_INTERVAL_SECONDS - time_since_ai))
+                print(f"💤 Quick Check fertig. Nächster Full Cycle in ~{next_ai_in // 60}m ({next_ai_in}s). Schlafe {CHECK_INTERVAL_SECONDS}s...")
 
             # Kurze Pause (Default 60s)
             completed = await smart_sleep(CHECK_INTERVAL_SECONDS)
