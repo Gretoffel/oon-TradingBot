@@ -47,7 +47,7 @@ AI_CYCLE_INTERVAL_SECONDS = 15 * 60
 # NEU: Das ist der schnelle Sicherheits-Check (Verkaufen / Stop-Loss)
 CHECK_INTERVAL_SECONDS = 60      
 
-ERROR_WAIT_SECONDS = 5           
+ERROR_WAIT_SECONDS = 5
 
 # --- RISK MANAGEMENT ---
 MIN_TRADE_VOLUME = 6000.0  
