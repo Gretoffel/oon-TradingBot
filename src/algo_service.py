@@ -7,27 +7,48 @@ from utils import load_blacklist, calculate_fee
 def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
     """
     Phase 1: Defense.
-    Adjusted for SWING TRADING: Holds positions overnight unless emergency.
+    Checkt Stop-Loss, Break-Even und EMA-Trend.
     """
     sells = []
+    health_reports = []
     pending_sell_isins = [o['isin'] for o in depot_data['open_orders'] if o['type'] == 'SELL']
     
     for stock in depot_data['stocks']:
         isin = stock.get('isin')
         name = stock['name']
         qty = stock.get('qty', 0)
-        current_value_eur = stock.get('value_eur', 0.0)
         
         if isin in pending_sell_isins: continue
         
-        # 1. AI RED FLAG CHECK (Still critical for Swing Trading)
-        ai_match = next((r for r in ai_defense_results if r.get('isin') == isin or (r.get('isin') and r.get('isin') in name)), None)
-        if ai_match and ai_match.get('action') == 'EMERGENCY_SELL':
-            sells.append({
-                "aktion": "SELL", "name": name, "isin": isin,
-                "grund": f"🚨 AI EMERGENCY: {ai_match.get('reason', 'Red Flag')}"
-            })
-            continue
+        # Default report data
+        report = {
+            "name": name[:15],
+            "price": 0.0,
+            "perf": 0.0,
+            "rsi": 0.0,
+            "trend": "N/A",
+            "signal": "HOLD",
+            "reason": "OK"
+        }
+
+        # --- PERFORMANCE PARSING ---
+        perf_pct = 0.0
+        try:
+            raw_perf = stock.get("performance_since_buy", "0").replace("%", "").replace(",", ".").replace("+", "").strip()
+            perf_pct = float(raw_perf)
+        except: pass
+        report["perf"] = perf_pct
+
+        # 1. AI RED FLAG CHECK
+        if ai_defense_results:
+            ai_match = next((r for r in ai_defense_results if r.get('isin') == isin or (r.get('isin') and r.get('isin') in name)), None)
+            if ai_match and ai_match.get('action') == 'EMERGENCY_SELL':
+                reason = f"🚨 AI: {ai_match.get('reason', 'Red Flag')}"
+                report["signal"] = "SELL"
+                report["reason"] = reason
+                sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                health_reports.append(report)
+                continue
 
         # 2. MATCH TECHNICAL DATA
         tech_data = market_snapshot.get(isin)
@@ -37,77 +58,94 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
                     tech_data = t_data
                     break
         
-        # --- PERFORMANCE PARSING ---
-        perf_pct = 0.0
-        try:
-            raw_perf = stock.get("performance_since_buy", "0").replace("%", "").replace(",", ".").replace("+", "").strip()
-            perf_pct = float(raw_perf)
-        except: pass
-        
-        # --- TECHNICAL SELL RULES ---
         if tech_data:
             price = tech_data['price']
-            ema_fast = tech_data['ema_fast']
             rsi = tech_data['rsi']
             ticker = tech_data['ticker']
+            report["name"] = ticker
+            report["price"] = price
+            report["rsi"] = rsi
+            report["trend"] = tech_data['trend']
 
-            # A. EOD PROTECTION (ONLY IF ENABLED IN CONFIG)
-            # For Swing Trading, config.MINUTES_BEFORE_CLOSE_TO_SELL should be 0 or -1
+            # A. EOD PROTECTION
             if config.MINUTES_BEFORE_CLOSE_TO_SELL > 0:
                 mins_left = get_minutes_until_close(ticker)
                 if mins_left <= config.MINUTES_BEFORE_CLOSE_TO_SELL:
-                    sells.append({
-                        "aktion": "SELL", "name": name, "isin": isin,
-                        "grund": f"🕒 EOD EXIT: Market closing in {mins_left} min."
-                    })
+                    reason = f"🕒 EOD: {mins_left}m left"
+                    report["signal"] = "SELL"
+                    report["reason"] = reason
+                    sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                    health_reports.append(report)
                     continue
 
-            # B. HARD STOP LOSS (Emergency Brake)
+            # B. BREAK-EVEN
+            if perf_pct >= config.BREAK_EVEN_TRIGGER_PCT:
+                if perf_pct < config.BREAK_EVEN_LOCK_PCT:
+                    reason = f"🛡️ BE-SHIELD: {perf_pct:.1f}% < {config.BREAK_EVEN_LOCK_PCT}%"
+                    report["signal"] = "SELL"
+                    report["reason"] = reason
+                    sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                    health_reports.append(report)
+                    continue
+
+            # C. HARD STOP LOSS
             if perf_pct <= config.STOP_LOSS_HARD_PCT:
-                sells.append({
-                    "aktion": "SELL", "name": name, "isin": isin,
-                    "grund": f"🛑 STOP LOSS: Position at {perf_pct:.1f}%"
-                })
+                reason = f"🛑 STOP-LOSS: {perf_pct:.1f}%"
+                report["signal"] = "SELL"
+                report["reason"] = reason
+                sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                health_reports.append(report)
                 continue
 
-            # C. HARD TAKE PROFIT (Optional, usually high for Swing)
+            # D. HARD TAKE PROFIT
             if perf_pct >= config.TAKE_PROFIT_HARD_PCT:
-                sells.append({
-                    "aktion": "SELL", "name": name, "isin": isin,
-                    "grund": f"💰 TAKE PROFIT: Target reached ({perf_pct:.1f}%)"
-                })
+                reason = f"💰 PROFIT: {perf_pct:.1f}%"
+                report["signal"] = "SELL"
+                report["reason"] = reason
+                sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                health_reports.append(report)
                 continue
 
-            # D. TRAILING STOP & OVERBOUGHT PROTECTION
-            # We allow higher RSI in Swing Trading (Momentum)
+            # E. TRAILING STOP & OVERBOUGHT
             if perf_pct >= config.TRAILING_STOP_ACTIVATE_PCT:
-                
-                # 1. RSI exhaustion - relaxed for Swing
-                if rsi > config.RSI_OVERBOUGHT: # e.g. > 85
-                    sells.append({
-                        "aktion": "SELL", "name": name, "isin": isin,
-                        "grund": f"💰 TAKE PROFIT: RSI Extreme ({rsi:.0f}) at {perf_pct:+.1f}% profit."
-                    })
+                if rsi > config.RSI_OVERBOUGHT: 
+                    reason = f"🔥 OVERBOUGHT: RSI {rsi:.0f}"
+                    report["signal"] = "SELL"
+                    report["reason"] = reason
+                    sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                    health_reports.append(report)
                     continue
-                    
-                # 2. Trend Break - We use EMA Slow for Swing, not EMA Fast
-                # EMA Fast break is just noise in swing trading.
                 if price < tech_data['ema_slow']:
-                    sells.append({
-                        "aktion": "SELL", "name": name, "isin": isin,
-                        "grund": f"🔒 TRAILING STOP: Trend Change (EMA21) at {perf_pct:+.1f}% profit."
-                    })
+                    reason = f"🔒 T-STOP: EMA21 Break"
+                    report["signal"] = "SELL"
+                    report["reason"] = reason
+                    sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                    health_reports.append(report)
                     continue
 
-            # E. TREND BREAK (Sinking Ship prevention)
-            # Only sell if we are losing AND trend is definitely broken
-            if price < tech_data['ema_slow'] and perf_pct < -2.0:
-                sells.append({
-                    "aktion": "SELL", "name": name, "isin": isin,
-                    "grund": f"📉 TREND BREAK: Price fell below EMA21 & Negative Perf."
-                })
+            # F. TREND BREAK (Sinking Ship)
+            if price < tech_data['ema_slow'] and perf_pct < -1.0:
+                reason = f"📉 TREND: EMA21 Break & Neg"
+                report["signal"] = "SELL"
+                report["reason"] = reason
+                sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                health_reports.append(report)
                 continue
                 
+        health_reports.append(report)
+
+    # --- PRINT PORTFOLIO HEALTH TABLE ---
+    if health_reports:
+        print("\n" + "─"*80)
+        print(f"🛡️ PORTFOLIO HEALTH CHECK | {len(health_reports)} Positions held")
+        print(f"{'TICKER':<10} | {'PRICE':<8} | {'PERF%':<7} | {'RSI':<5} | {'TREND':<7} | {'SIGNAL':<7} | {'REASON'}")
+        print("-" * 80)
+        for h in health_reports:
+            sig_icon = "🔴 SELL" if h['signal'] == "SELL" else "🟢 HOLD"
+            perf_str = f"{h['perf']:+.1f}%"
+            print(f"{h['name']:<10} | {h['price']:<8.2f} | {perf_str:<7} | {h['rsi']:<5.1f} | {h['trend']:<7} | {sig_icon:<7} | {h['reason']}")
+        print("─"*80 + "\n")
+        
     return sells
 
 def synthesize_decisions(depot_data, tech_candidates, ai_matrix):
