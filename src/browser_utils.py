@@ -38,7 +38,7 @@ async def create_browser_context(playwright):
     context = await playwright.chromium.launch_persistent_context(
         user_data_dir=config.USER_DATA_DIR,
         channel="chrome",  # <--- FORCE REAL CHROME
-        headless=False, 
+        headless=not config.BROWSER_SHOW,  # BROWSER_SHOW=False → headless=True
         args=[
             "--disable-blink-features=AutomationControlled",
             "--disable-dev-shm-usage",

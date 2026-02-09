@@ -100,3 +100,7 @@ AI_STUDIO_URL = "https://aistudio.google.com/app/prompts/new_chat"
 # --- TEST MODE ---
 TEST_MODE = False  
 TEST_ORDERS = []
+
+# --- BROWSER SETTINGS ---
+# Set to False to run browser in headless mode (hidden)
+BROWSER_SHOW = os.getenv("BROWSER_SHOW", "true").lower() == "true"
