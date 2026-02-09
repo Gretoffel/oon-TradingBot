@@ -16,6 +16,19 @@ def clean_amount(text):
     try: return float(cleaned)
     except: return 0.0
 
+def calculate_fee(amount_eur):
+    """
+    Berechnet die Transaktionsgebühren nach OÖN-Börsespiel-Regeln:
+    - 0,25 % vom Transaktionswert
+    - Mindestspesen: 17 Euro
+    - Zusätzlich 3 Euro pro Order
+    """
+    if amount_eur <= 0: return 0.0
+    
+    base_fee = max(17.0, amount_eur * 0.0025)
+    total_fee = base_fee + 3.0
+    return total_fee
+
 def extract_json_list(text):
     """Extrahiert eine JSON-Liste aus einem Textblock."""
     if not text: return None
@@ -62,7 +75,7 @@ def print_analysis_summary(decisions):
             
         print("-" * 40)
 
-def log_success(action, name, isin, amount, price, reason):
+def log_success(action, name, isin, amount, price, reason, profit=None):
     """Schreibt erfolgreiche Aktionen in eine Tages-Logdatei."""
     try:
         if not os.path.exists(config.LOG_DIR):
@@ -80,6 +93,7 @@ def log_success(action, name, isin, amount, price, reason):
             f"ISIN: {isin:<12} | "
             f"QTY: {str(amount):<5} | "
             f"PRICE_EST: {str(price):<8} | "
+            f"PROFIT: {profit if profit is not None else 'N/A'} | " 
             f"REASON: {reason}\n"
         )
         
@@ -106,6 +120,8 @@ def get_todays_log_content():
         return f"Fehler beim Lesen des Logs: {e}"
 
 # --- NEU: HISTORY PARSER ---
+
+
 def get_transaction_history():
     """Liest alle Log-Dateien und parst die Transaktionen in eine Liste."""
     history = []
@@ -113,58 +129,106 @@ def get_transaction_history():
     if not os.path.exists(config.LOG_DIR):
         return history
 
-    # Alle log_YYYY-MM-DD.txt Dateien finden, neueste zuerst
     files = sorted(glob.glob(os.path.join(config.LOG_DIR, "log_*.txt")), reverse=True)
 
     for filepath in files:
         try:
             filename = os.path.basename(filepath)
-            # Datum aus Dateiname extrahieren (log_2024-05-20.txt -> 2024-05-20)
             date_part = filename.replace("log_", "").replace(".txt", "")
             
             with open(filepath, "r", encoding="utf-8") as f:
                 lines = f.readlines()
             
-            # Zeilen rückwärts lesen (Neueste Aktion oben)
             for line in reversed(lines):
                 if "ACTION:" not in line: continue
                 
                 parts = line.split("|")
-                if not parts: continue
-
-                # Teil 0: "[12:00:00] ACTION: BUY"
-                part0 = parts[0].strip()
-                time_match = re.search(r'\[(.*?)\]', part0)
-                time_str = time_match.group(1) if time_match else "00:00:00"
-                
-                action = "UNKNOWN"
-                if "ACTION:" in part0:
-                    action = part0.split("ACTION:")[1].strip()
-                
+                # More robust splitting
                 entry = {
                     "Datum": date_part,
-                    "Zeit": time_str,
-                    "Aktion": action,
+                    "Zeit": "00:00",
+                    "Aktion": "UNKNOWN",
                     "Name": "N/A",
                     "ISIN": "N/A",
                     "Menge": 0,
                     "Preis": 0.0,
+                    "Profit": "N/A",
                     "Grund": ""
                 }
-
-                # Restliche Teile parsen
-                for p in parts[1:]:
-                    p = p.strip()
-                    if p.startswith("NAME:"): entry["Name"] = p.replace("NAME:", "").strip()
-                    elif p.startswith("ISIN:"): entry["ISIN"] = p.replace("ISIN:", "").strip()
-                    elif p.startswith("QTY:"): entry["Menge"] = clean_amount(p.replace("QTY:", ""))
-                    elif p.startswith("PRICE_EST:"): entry["Preis"] = clean_amount(p.replace("PRICE_EST:", ""))
-                    elif p.startswith("REASON:"): entry["Grund"] = p.replace("REASON:", "").strip()
                 
-                history.append(entry)
+                try:
+                    # Safe parsing
+                    entry["Zeit"] = parts[0].split("]")[0].replace("[", "").strip()
+                    entry["Aktion"] = parts[0].split("ACTION:")[1].strip()
+                    
+                    for p in parts[1:]:
+                        if "NAME:" in p: entry["Name"] = p.split("NAME:")[1].strip()
+                        elif "ISIN:" in p: entry["ISIN"] = p.split("ISIN:")[1].strip()
+                        elif "QTY:" in p: entry["Menge"] = clean_amount(p.split("QTY:")[1])
+                        elif "PRICE_EST:" in p: entry["Preis"] = clean_amount(p.split("PRICE_EST:")[1])
+                        elif "PROFIT:" in p: 
+                            raw_profit = p.split("PROFIT:")[1].strip()
+                            if raw_profit != "N/A":
+                                entry["Profit"] = f"{float(raw_profit):+.2f} €"
+                            else:
+                                entry["Profit"] = "-"
+                        elif "REASON:" in p: entry["Grund"] = p.split("REASON:")[1].strip()
+                    
+                    history.append(entry)
+                except:
+                    continue # Skip broken lines
 
         except Exception as e:
-            print(f"Fehler beim Parsen von {filepath}: {e}")
             continue
             
+            
     return history
+
+# --- BLACKLIST MANAGER ---
+
+def load_blacklist():
+    """Lädt die Liste der blockierten Aktien (Ticker/ISIN)."""
+    if not os.path.exists(config.BLACKLIST_FILE):
+        return []
+    
+    try:
+        with open(config.BLACKLIST_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            # Falls es ein Dict ist (altes Format?), Liste extrahieren oder leer
+            if isinstance(data, list): return data
+            return []
+    except Exception as e:
+        print(f"⚠️ Fehler beim Laden der Blacklist: {e}")
+        return []
+
+def save_blacklist(data):
+    """Speichert die Blacklist."""
+    try:
+        if not os.path.exists(config.JSON_DIR):
+            os.makedirs(config.JSON_DIR)
+            
+        with open(config.BLACKLIST_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        print(f"⚠️ Fehler beim Speichern der Blacklist: {e}")
+
+def add_to_blacklist(identifier, reason="Not Tradeable"):
+    """Fügt eine Aktie (Ticker oder ISIN) der Blacklist hinzu."""
+    if not identifier or identifier == "N/A": return
+    
+    current_list = load_blacklist()
+    
+    # Check if already exists (by identifier)
+    exists = any(item['id'] == identifier for item in current_list)
+    
+    if not exists:
+        entry = {
+            "id": identifier,
+            "reason": reason,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        current_list.append(entry)
+        save_blacklist(current_list)
+        print(f"🚫 BLACKLIST: {identifier} wurde hinzugefügt ({reason}).")
+    else:
+        print(f"ℹ️ {identifier} ist bereits auf der Blacklist.")
