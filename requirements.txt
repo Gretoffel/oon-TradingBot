@@ -1,0 +1,17 @@
+# Web Automation
+playwright==1.41.0
+
+# Data Analysis & Market Data
+yfinance==0.2.36
+pandas==2.1.4
+numpy==1.26.2
+
+# Dashboard & UI
+streamlit==1.30.0
+
+# Configuration
+python-dotenv==1.0.1
+
+# additional
+pytz>=2023.3
+tzdata>=2023.3
