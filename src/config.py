@@ -67,9 +67,10 @@ EARNINGS_DAYS_THRESHOLD = 1
 TAKE_PROFIT_HARD_PCT = 20.0    # Angepasst: Realistischeres Ziel
 STOP_LOSS_HARD_PCT = -2.5      # Angepasst: Engerer Stop Loss für Sicherheit
 
-# Break-Even Trigger (ab wann wird der Gewinn gesichert?)
-BREAK_EVEN_TRIGGER_PCT = 4.0   # Wenn wir über 4% sind...
-BREAK_EVEN_LOCK_PCT = 0.5      # ...darf es nicht mehr unter 0.5% fallen.
+# --- HIGH WATER MARK (SMART TRAILING STOP) ---
+# Ersetzt den alten Break-Even.
+HWM_TRIGGER_PCT = 4.0       # Erst ab 4% Profit aktivieren (Puffer für Gebühren & Rauschen)
+HWM_DROP_THRESHOLD = 1.5    # Etwas mehr Luft lassen (1.5% Abstand vom Hoch)
 
 # ATR-basiertes Risikomanagement
 ATR_STOP_LOSS_MULTIPLIER = 2.0    

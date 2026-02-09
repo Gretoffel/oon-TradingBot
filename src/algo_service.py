@@ -2,17 +2,21 @@ import config
 from datetime import datetime
 from market_data import get_market_snapshot, get_isin_by_name, is_market_open, get_minutes_until_close
 from utils import load_blacklist, calculate_fee
-
+import remote_manager  # <--- NEU: Für High Water Mark Speicher
 
 def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
     """
     Phase 1: Defense.
-    Checkt Stop-Loss, Break-Even und EMA-Trend.
+    Checkt Stop-Loss, High-Water-Mark (Smart Trailing) und EMA-Trend.
     """
     sells = []
     health_reports = []
     pending_sell_isins = [o['isin'] for o in depot_data['open_orders'] if o['type'] == 'SELL']
     
+    # --- NEU: High Water Marks laden ---
+    high_water_marks = remote_manager.get_high_water_marks()
+    hwm_updated = False 
+
     for stock in depot_data['stocks']:
         isin = stock.get('isin')
         name = stock['name']
@@ -23,8 +27,10 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
         # Default report data
         report = {
             "name": name[:15],
+            "isin": isin,
             "price": 0.0,
             "perf": 0.0,
+            "peak": 0.0,
             "rsi": 0.0,
             "trend": "N/A",
             "signal": "HOLD",
@@ -38,6 +44,25 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
             perf_pct = float(raw_perf)
         except: pass
         report["perf"] = perf_pct
+
+        # --- NEU: HWM UPDATE LOGIK ---
+        current_hwm = high_water_marks.get(isin, 0.0)
+        
+        # 1. Reset bei Verlust: Wenn Position rot ist, HWM vergessen
+        if perf_pct < 0:
+            if current_hwm != 0:
+                high_water_marks[isin] = 0.0
+                hwm_updated = True
+        # 2. Update bei neuem Hoch
+        elif perf_pct > current_hwm:
+            high_water_marks[isin] = perf_pct
+            current_hwm = perf_pct
+            hwm_updated = True
+            # Optional: Logge signifikante neue Hochs
+            if perf_pct > config.HWM_TRIGGER_PCT:
+                print(f"   📈 New Peak für {name}: {perf_pct:.2f}%")
+
+        report["peak"] = current_hwm
 
         # 1. AI RED FLAG CHECK
         if ai_defense_results:
@@ -86,13 +111,21 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
                     health_reports.append(report)
                     continue
 
-            # B. BREAK-EVEN
-            if perf_pct >= config.BREAK_EVEN_TRIGGER_PCT:
-                if perf_pct < config.BREAK_EVEN_LOCK_PCT:
-                    reason = f"🛡️ BE-SHIELD: {perf_pct:.2f}% < {config.BREAK_EVEN_LOCK_PCT}%"
+            # --- NEU: B. HIGH WATER MARK (SMART TRAILING STOP) ---
+            # Ersetzt den alten Break-Even Code komplett.
+            # Wir prüfen nur, wenn wir über dem Trigger (z.B. 4%) sind.
+            if current_hwm >= config.HWM_TRIGGER_PCT:
+                drawdown = current_hwm - perf_pct
+                if drawdown >= config.HWM_DROP_THRESHOLD:
+                    reason = f"📉 HWM-EXIT: Peak {current_hwm:.1f}% -> Now {perf_pct:.1f}%"
                     report["signal"] = "SELL"
                     report["reason"] = reason
                     sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
+                    
+                    # Reset nach Signal, damit er nicht looped
+                    high_water_marks[isin] = 0.0
+                    hwm_updated = True
+                    
                     health_reports.append(report)
                     continue
 
@@ -114,7 +147,7 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
                 health_reports.append(report)
                 continue
 
-            # E. TRAILING STOP & OVERBOUGHT
+            # E. TRAILING STOP & OVERBOUGHT (Legacy / RSI)
             if perf_pct >= config.TRAILING_STOP_ACTIVATE_PCT:
                 if rsi > config.RSI_OVERBOUGHT: 
                     reason = f"🔥 OVERBOUGHT: RSI {rsi:.0f}"
@@ -123,6 +156,7 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
                     sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
                     health_reports.append(report)
                     continue
+                # EMA Trend Check nur, wenn wir noch nicht vom HWM gefangen wurden
                 if price < tech_data['ema_slow']:
                     reason = f"🔒 T-STOP: EMA21 Break"
                     report["signal"] = "SELL"
@@ -142,16 +176,25 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
                 
         health_reports.append(report)
 
+    # --- NEU: Speichern der HWMs ---
+    if hwm_updated:
+        remote_manager.save_high_water_marks(high_water_marks)
+
     # --- PRINT PORTFOLIO HEALTH TABLE ---
     if health_reports:
         print("\n" + "─"*80)
         print(f"🛡️ PORTFOLIO HEALTH CHECK | {len(health_reports)} Positions held")
-        print(f"{'TICKER':<10} | {'PRICE':<8} | {'PERF%':<7} | {'RSI':<5} | {'TREND':<7} | {'SIGNAL':<7} | {'REASON'}")
+        # Tabelle um PEAK% erweitert
+        print(f"{'TICKER':<10} | {'PERF%':<7} | {'PEAK%':<6} | {'RSI':<5} | {'SIGNAL':<7} | {'REASON'}")
         print("-" * 80)
         for h in health_reports:
             sig_icon = "🔴 SELL" if h['signal'] == "SELL" else "🟡 WAIT" if h['signal'] == "WAIT" else "🟢 HOLD"
             perf_str = f"{h['perf']:+.2f}%"
-            print(f"{h['name']:<10} | {h['price']:<8.2f} | {perf_str:<7} | {h['rsi']:<5.1f} | {h['trend']:<7} | {sig_icon:<7} | {h['reason']}")
+            
+            peak_val = h.get('peak', 0.0)
+            peak_str = f"{peak_val:.1f}%" if peak_val > 0 else "-"
+
+            print(f"{h['name']:<10} | {perf_str:<7} | {peak_str:<6} | {h['rsi']:<5.1f} | {sig_icon:<7} | {h['reason']}")
         print("─"*80 + "\n")
         
     return sells
