@@ -3,6 +3,7 @@ import re
 import config
 from utils import clean_amount
 import remote_manager
+import market_data
 
 async def login(page):
     """Führt den Login bei OON durch."""
@@ -64,19 +65,43 @@ async def scan_depot(page):
 
                 if await name_el.count() > 0:
                     name = await name_el.inner_text()
-                    # WICHTIG: ISIN aus der URL extrahieren (href='.../detail/US0378331005')
-                    href = await name_el.get_attribute("href")
-                    if href:
-                        isin_match = re.search(r'([A-Z]{2}[A-Z0-9]{9}\d)', href)
-                        if isin_match:
-                            isin = isin_match.group(1)
                 else:
-                    # Fallback, falls kein Link da ist (z.B. bei manchen Zertifikaten)
+                    # Fallback für den Namen
                     name_items = await row.locator("strong").all()
                     if name_items: 
                         name = await name_items[0].inner_text()
-                    else: 
-                        continue # Wenn kein Name gefunden, Zeile überspringen
+
+                # --- 1b. ISIN EXTRAKTION (Aggressiv) ---
+                # A) In allen Links der Zeile suchen (HREFs)
+                all_links = await row.locator("a").all()
+                for link in all_links:
+                    href = await link.get_attribute("href")
+                    if href:
+                        match = re.search(r'([A-Z]{2}[A-Z0-9]{9}\d)', href)
+                        if match:
+                            isin = match.group(1)
+                            break
+                
+                # B) Im text_content suchen (vielleicht schon im DOM, aber hidden)
+                if isin == "N/A":
+                    tc = await row.text_content()
+                    match = re.search(r'([A-Z]{2}[A-Z0-9]{9}\d)', tc)
+                    if match:
+                        isin = match.group(1)
+
+                # C) Pfeil klicken (Detail-Ansicht), falls immer noch nix
+                if isin == "N/A":
+                    # Suche den Toggle-Button (Pfeil)
+                    toggle = row.locator("button.toggle-btn").first
+                    if await toggle.count() > 0:
+                        try:
+                            await toggle.click()
+                            await asyncio.sleep(0.5) # Animation abwarten
+                            tc_after = await row.text_content()
+                            match = re.search(r'([A-Z]{2}[A-Z0-9]{9}\d)', tc_after)
+                            if match:
+                                isin = match.group(1)
+                        except: pass
 
                 # --- NEW: ISIN RESOLUTION FALLBACK ---
                 if isin == "N/A" or not isin:

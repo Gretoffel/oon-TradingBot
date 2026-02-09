@@ -43,32 +43,46 @@ async def _send_prompt_to_ai(page, context, prompt):
                 
                 if await check_soft_crash(page): break 
 
-                error_locator = page.locator(".model-error")
+                error_locator = page.locator(".model-error, mat-error, .error-container")
                 if await error_locator.count() > 0 and await error_locator.last.is_visible():
                     print("\n⚠️ Google AI Error detected. Attempting Rerun...")
                     try:
-                        # Hover over the model turn container to make the rerun button appear
-                        turn_locator = page.locator('div[data-turn-role="Model"]').last
-                        if await turn_locator.count() > 0:
-                            box = await turn_locator.bounding_box()
-                            if box:
-                                # Move to center, then slightly offset to simulate "moving around"
-                                await page.mouse.move(box['x'] + box['width']/2, box['y'] + box['height']/2)
-                                await asyncio.sleep(0.2)
-                                await page.mouse.move(box['x'] + box['width']/2 + 10, box['y'] + box['height']/2 + 10)
-                                await asyncio.sleep(0.5)
-                            else:
-                                await turn_locator.hover(force=True)
-                            await asyncio.sleep(1) # Wait for animation/reveal
+                        # 1. Hover over the model turn or the error itself to trigger the button
+                        # We try multiple targets to be sure the action bar appears
+                        targets = [
+                            page.locator('div[data-turn-role="Model"]').last,
+                            error_locator.last,
+                            page.locator('ms-model-turn').last
+                        ]
                         
-                        rerun_btns = page.locator("button[aria-label='Rerun this turn']")
+                        for target in targets:
+                            if await target.count() > 0:
+                                box = await target.bounding_box()
+                                if box:
+                                    # Hover slightly above the bottom of the container where buttons usually are
+                                    await page.mouse.move(box['x'] + box['width']/2, box['y'] + box['height'] - 10)
+                                    await asyncio.sleep(0.5)
+                                    await page.mouse.move(box['x'] + box['width']/2 + 5, box['y'] + box['height'] - 15)
+                                    await asyncio.sleep(0.5)
+                                else:
+                                    await target.hover(force=True)
+                                    await asyncio.sleep(0.5)
+
+                        await asyncio.sleep(1) # Wait for animation/reveal
+                        
+                        rerun_btns = page.locator("button[aria-label='Rerun this turn'], button:has-text('Rerun')")
                         if await rerun_btns.count() > 0:
+                            print("   🔄 Clicking Rerun button...")
                             await rerun_btns.last.click()
+                            await asyncio.sleep(2)
                             continue
                         else:
+                            print("   ⚠️ Rerun button not found. Reloading page as fallback...")
                             await page.reload()
+                            await asyncio.sleep(4)
                             break 
-                    except: 
+                    except Exception as re_err:
+                        print(f"   ⚠️ Rerun failed: {re_err}")
                         break 
 
                 ans_locator = page.locator('div[data-turn-role="Model"]').last

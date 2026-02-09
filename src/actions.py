@@ -228,68 +228,119 @@ async def execute_sell_order(page, stock_name, quantity, reason="-", profit=None
     print(f"\n📉 VERKAUF-START: {stock_name} (Menge: {quantity})")
     
     try:
-        # Zeile suchen
+        # Sicherstellen, dass die Tabelle geladen ist
+        try:
+            await page.wait_for_selector("tr[role='row']", timeout=5000)
+        except:
+            pass
+
+        # Zeile suchen (mit flexiblerer Suche)
+        # 1. Versuch: Exakter Match via has_text
         row = page.locator("tr[role='row']").filter(has_text=stock_name).first
+        
+        if await row.count() == 0:
+            # 2. Versuch: Teil-Match oder Regex (case-insensitive)
+            row = page.locator("tr[role='row']").filter(has_text=re.compile(re.escape(stock_name), re.IGNORECASE)).first
+            
+        if await row.count() == 0:
+            # 3. Versuch: Suche direkt nach dem Link-Text
+            link = page.locator("a.tt-link").filter(has_text=stock_name).first
+            if await link.count() > 0:
+                row = page.locator("tr[role='row']").filter(has=link).first
+
         if await row.count() == 0:
             print(f"❌ Aktie '{stock_name}' nicht im Depot gefunden!")
+            # Debug-Info: Zeige alle verfügbaren Aktien
+            all_links = await page.locator("a.tt-link").all_inner_texts()
+            if all_links:
+                print(f"   ℹ️ Vorhandene Aktien: {', '.join([l.strip() for l in all_links if l.strip()])}")
             return
 
         print("   -> Zeile gefunden. Öffne Menü...")
         menu_btn = row.locator("button.dropdown-toggle")
         
-        # Scrollen falls nötig
-        if not await menu_btn.is_visible():
-             await menu_btn.scroll_into_view_if_needed()
-             
-        await menu_btn.click()
+        # Sicherstellen, dass keine anderen Menüs offen sind (Escape drücken)
+        await page.keyboard.press("Escape")
+        await asyncio.sleep(0.5)
+
+        # Scrollen und Klicken
+        await menu_btn.scroll_into_view_if_needed()
+        try:
+            await menu_btn.click(timeout=5000)
+        except:
+            # Fallback: Erzwungener Klick falls abgefangen
+            await menu_btn.click(force=True)
+            
         await asyncio.sleep(1)
 
-        # "Verkaufen" Option wählen
-        sell_option = page.locator("a").filter(has_text="Aus Spieldepot verkaufen")
+        # "Verkaufen" Option wählen - Spezifischer suchen
+        # Oft sind diese Menüs global am Ende des Bodys, daher suchen wir seitenweit nach dem Text
+        sell_option = page.locator("a, button").filter(has_text=re.compile("Aus Spieldepot verkaufen", re.IGNORECASE))
+        
         if await sell_option.count() == 0:
-             print("❌ 'Verkaufen'-Option nicht sichtbar.")
-             # Menü schließen versuch
-             try: await menu_btn.click()
-             except: pass
+             # Zweiter Versuch: Nur "Verkaufen" in einem Link
+             sell_option = page.locator("a").filter(has_text=re.compile("^Verkaufen$", re.IGNORECASE))
+        
+        if await sell_option.count() == 0:
+             # Dritter Versuch: Irgendwas mit "Verkaufen" in der Liste/Menü
+             sell_option = page.locator(".dropdown-menu a, .tt-dropdown-menu a").filter(has_text=re.compile("Verkaufen", re.IGNORECASE))
+
+        if await sell_option.count() == 0:
+             print("❌ 'Verkaufen'-Option im Menü nicht gefunden.")
+             # Debug: Was ist sichtbar?
              return
         
         await sell_option.first.click()
         
         # Popup Handling
-        print("   -> Warte auf Popup...")
+        print("   -> Warte auf Verkaufs-Formular...")
         qty_input_sel = "input[formcontrolname='numOfShares']"
         try:
-            await page.wait_for_selector(qty_input_sel, state="visible", timeout=6000)
+            await page.wait_for_selector(qty_input_sel, state="visible", timeout=8000)
         except:
-            print("❌ Popup nicht aufgegangen.")
+            print("❌ Verkaufs-Formular (Menge) nicht erschienen.")
+            await click_cancel_button(page)
             return
             
-        await asyncio.sleep(1)
+        await asyncio.sleep(1.5)
         await page.fill(qty_input_sel, str(int(quantity)))
         await asyncio.sleep(1)
 
-        submit_btn = page.locator("button[type='submit']").filter(has_text="Verkaufen")
+        # Den RICHTIGEN Verkaufen-Button im Modal finden
+        # (Es gibt oft den Dropdown-Link und den Submit-Button mit gleichem Text)
+        submit_btn = page.locator("button.btn-primary[type='submit']").filter(has_text=re.compile("Verkaufen", re.IGNORECASE))
+        
         if await submit_btn.count() > 0:
             await submit_btn.first.click()
         else:
-            await page.locator("button:has-text('Verkaufen')").click()
+            # Fallback
+            await page.locator("button:has-text('Verkaufen')").last.click()
 
-        # Bestätigung
+        # Bestätigung (Kostenpflichtig / Ausführen)
         await asyncio.sleep(2)
-        pre_confirm = page.locator("button:has-text('Kostenpflichtig'), button:has-text('Order ausführen')")
-        if await pre_confirm.count() > 0 and await pre_confirm.first.is_visible():
-             print("   -> Bestätige Ausführung...")
-             await pre_confirm.first.click()
-             await asyncio.sleep(2)
-
-        # Erfolg
+        confirm_selectors = [
+            "button:has-text('Kostenpflichtig')",
+            "button:has-text('Order ausführen')",
+            "button:has-text('Bestätigen')",
+            ".btn-primary:has-text('Verkaufen')" # Manchmal muss man 2x klicken
+        ]
+        
+        confirmed = False
+        for sel in confirm_selectors:
+            btn = page.locator(sel)
+            if await btn.count() > 0 and await btn.first.is_visible():
+                print(f"   -> Bestätige mit '{sel}'...")
+                await btn.first.click()
+                confirmed = True
+                await asyncio.sleep(2)
+                break
+        
+        # Erfolg prüfen
         success_btn = page.locator("button:has-text('Zum Spieldepot'), button:has-text('Zum Musterdepot')")
         try:
             await success_btn.wait_for(state="visible", timeout=10000)
             print("✅ VERKAUF ERFOLGREICH.")
-            
             log_success("SELL", stock_name, "N/A", quantity, 0, reason, profit)
-
             await success_btn.first.click()
         except:
             print("⚠️ Kein Erfolgs-Button. Navigiere manuell.")

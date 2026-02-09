@@ -32,14 +32,20 @@ TICKER_MAPPING = {
     "US4581401001": "INTC",  # Intel
 
     # --- US Big Tech ---
+    # --- US Big Tech & Blue Chips ---
     "US0231351067": "AMZN",
     "US30303M1027": "META",
     "US02079K3059": "GOOGL",
     "US22788C1053": "CRWD",
-    "US11135F1012": "AVGO",
+    "US11135F1012": "AVGO", # Broadcom
     "US64110L1061": "NFLX",
     "US0382221051": "AMAT",
     "US79466L3024": "CRM",
+    "US1941621039": "KO",   # Coca Cola
+    "US46625H1005": "JPM",  # JP Morgan
+    "US88579Y1010": "MMM",  # 3M
+    "US2546871060": "DIS",  # Disney
+    "US5949181045": "MSFT",
 
     # --- ATX Prime (Österreich - Pflichtprogramm, aber selektiv) ---
     "AT0000652011": "EBS.VI", 
@@ -52,6 +58,7 @@ TICKER_MAPPING = {
     "AT0000644505": "LNZ.VI",   # Lenzing
     "AT0000831706": "WIE.VI",   # Wienerberger
     "AT0000APOST4": "POST.VI",  # Post
+    "AT0000720008": "TKA.VI",   # Telekom Austria
 
     # --- DAX 40 (Momentum Picks) ---
     "DE0007030009": "RHM.DE",  # Rheinmetall (Defense Hype)
@@ -97,6 +104,13 @@ NAME_TO_ISIN_FALLBACK = {
     "lenzing": "AT0000644505",
     "wienerberger": "AT0000831706",
     "post": "AT0000APOST4",
+    "bawag": "AT0000BAWAG2",
+    "broadcom": "US11135F1012",
+    "coca cola": "US1941621039",
+    "jp morgan": "US46625H1005",
+    "morgan chase": "US46625H1005",
+    "andritz": "AT0000730007",
+    "voest": "AT0000937503",
 }
 
 def get_isin_by_name(name: str) -> str | None:
@@ -145,6 +159,7 @@ def is_market_open(ticker):
     if any(ticker.endswith(ext) for ext in [".VI", ".DE", ".AS", ".PA"]):
         return 540 <= minutes <= 1055 
     if "." not in ticker or ticker.endswith(".US"):
+        # US: 9:30 AM - 4:00 PM EST (15:30 - 22:00 CET)
         return 930 <= minutes <= 1320
     return True
 
@@ -206,6 +221,8 @@ def get_market_snapshot(portfolio_isins=None):
     if portfolio_isins:
         all_isins.update(portfolio_isins)
         
+    portfolio_set = set(portfolio_isins) if portfolio_isins else set()
+    
     tickers = []
     isin_map = {}
     for isin in all_isins:
@@ -229,24 +246,33 @@ def get_market_snapshot(portfolio_isins=None):
             isin = isin_map.get(ticker)
             
             if isin in blacklisted_ids or ticker in blacklisted_ids: continue
-            if not is_market_open(ticker): continue
             
-            # EOD Buy Protection - still relevant for buying, but we removed forced selling
-            mins_left = get_minutes_until_close(ticker)
-            if mins_left <= config.MINUTES_BEFORE_CLOSE_NO_BUY:
+            # --- MARKET STATUS CHECK ---
+            is_open = is_market_open(ticker)
+            is_held = isin in portfolio_set
+            
+            # If market closed AND not in portfolio: Skip
+            if not is_open and not is_held:
                 continue
+            
+            # EOD Buy Protection - skip only for new buys
+            if not is_held:
+                mins_left = get_minutes_until_close(ticker)
+                if mins_left <= config.MINUTES_BEFORE_CLOSE_NO_BUY:
+                    continue
 
             try:
                 df = data[ticker] if len(tickers) > 1 else data
                 df = df.dropna(how='all').ffill()
-                if df.empty or len(df) < 30: continue
+                if df.empty or len(df) < 5: # Relaxed min-length for off-market or low-vol
+                    continue
                 
                 prices = df['Close']
                 current_price = float(prices.iloc[-1])
-                prev_price = float(prices.iloc[-2])
+                prev_price = float(prices.iloc[-2]) if len(prices) > 1 else current_price
                 
                 rsi_series = calculate_rsi(prices, config.RSI_PERIOD)
-                current_rsi = float(rsi_series.iloc[-1])
+                current_rsi = float(rsi_series.iloc[-1]) if not rsi_series.empty else 50
                 
                 ema_fast = calculate_ema(prices, config.EMA_FAST)
                 ema_slow = calculate_ema(prices, config.EMA_SLOW)
@@ -259,11 +285,11 @@ def get_market_snapshot(portfolio_isins=None):
                 atr_series = calculate_atr(df, 14)
                 current_atr = float(atr_series.iloc[-1]) if not np.isnan(atr_series.iloc[-1]) else 0.0
                 
-                volume_avg = df['Volume'].rolling(20).mean().iloc[-1]
+                volume_avg = df['Volume'].rolling(20).mean().iloc[-1] if len(df) >= 20 else df['Volume'].mean()
                 current_volume = df['Volume'].iloc[-1]
                 volume_ratio = float(current_volume / volume_avg) if volume_avg > 0 else 1.0
                 
-                momentum_pct = ((current_price - prev_price) / prev_price) * 100
+                momentum_pct = ((current_price - prev_price) / prev_price) * 100 if prev_price != 0 else 0
                 
                 trend = "NEUTRAL"
                 if current_price > current_ema_slow: trend = "UP"
@@ -298,14 +324,20 @@ def get_market_snapshot(portfolio_isins=None):
         print(f"🔭 MARKET SCAN (SWING MODE) | {len(sorted_results)} Stocks tracked")
         print(f"{'TICKER':<10} | {'PRICE':<8} | {'RSI':<5} | {'SCORE':<5} | {'TREND':<7} | {'STATUS'}")
         print("-" * 80)
-        for isin, data in list(sorted_results.items())[:15]: 
-            ticker = data['ticker']
-            price = data['price']
-            rsi = data['rsi']
-            score = data['tech_score']
-            trend = data['trend']
-            status = "🚀 MOMENTUM" if score >= 80 else "⏳ WATCH"
-            print(f"{ticker:<10} | {price:<8.2f} | {rsi:<5.1f} | {score:<5} | {trend:<7} | {status}")
+        # Show top 5 buys + all portfolio items
+        shown_count = 0
+        for isin, data in sorted_results.items():
+            is_held = isin in portfolio_set
+            if shown_count < 15 or is_held:
+                ticker = data['ticker']
+                price = data['price']
+                rsi = data['rsi']
+                score = data['tech_score']
+                trend = data['trend']
+                status = "🚀 MOMENTUM" if score >= 80 else "⏳ WATCH"
+                if is_held: status = "📦 OWNED"
+                print(f"{ticker:<10} | {price:<8.2f} | {rsi:<5.1f} | {score:<5} | {trend:<7} | {status}")
+                shown_count += 1
         print("="*80 + "\n")
     else:
         print("⚠️ No valid market data found in scan.")

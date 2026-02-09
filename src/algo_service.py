@@ -67,6 +67,14 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
             report["rsi"] = rsi
             report["trend"] = tech_data['trend']
 
+            # --- MARKET OPEN CHECK ---
+            if not is_market_open(ticker):
+                report["trend"] = "OFF"
+                report["signal"] = "WAIT"
+                report["reason"] = "Market Closed"
+                health_reports.append(report)
+                continue
+
             # A. EOD PROTECTION
             if config.MINUTES_BEFORE_CLOSE_TO_SELL > 0:
                 mins_left = get_minutes_until_close(ticker)
@@ -81,7 +89,7 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
             # B. BREAK-EVEN
             if perf_pct >= config.BREAK_EVEN_TRIGGER_PCT:
                 if perf_pct < config.BREAK_EVEN_LOCK_PCT:
-                    reason = f"🛡️ BE-SHIELD: {perf_pct:.1f}% < {config.BREAK_EVEN_LOCK_PCT}%"
+                    reason = f"🛡️ BE-SHIELD: {perf_pct:.2f}% < {config.BREAK_EVEN_LOCK_PCT}%"
                     report["signal"] = "SELL"
                     report["reason"] = reason
                     sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
@@ -90,7 +98,7 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
 
             # C. HARD STOP LOSS
             if perf_pct <= config.STOP_LOSS_HARD_PCT:
-                reason = f"🛑 STOP-LOSS: {perf_pct:.1f}%"
+                reason = f"🛑 STOP-LOSS: {perf_pct:.2f}%"
                 report["signal"] = "SELL"
                 report["reason"] = reason
                 sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
@@ -99,7 +107,7 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
 
             # D. HARD TAKE PROFIT
             if perf_pct >= config.TAKE_PROFIT_HARD_PCT:
-                reason = f"💰 PROFIT: {perf_pct:.1f}%"
+                reason = f"💰 PROFIT: {perf_pct:.2f}%"
                 report["signal"] = "SELL"
                 report["reason"] = reason
                 sells.append({"aktion": "SELL", "name": name, "isin": isin, "grund": reason})
@@ -141,8 +149,8 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
         print(f"{'TICKER':<10} | {'PRICE':<8} | {'PERF%':<7} | {'RSI':<5} | {'TREND':<7} | {'SIGNAL':<7} | {'REASON'}")
         print("-" * 80)
         for h in health_reports:
-            sig_icon = "🔴 SELL" if h['signal'] == "SELL" else "🟢 HOLD"
-            perf_str = f"{h['perf']:+.1f}%"
+            sig_icon = "🔴 SELL" if h['signal'] == "SELL" else "🟡 WAIT" if h['signal'] == "WAIT" else "🟢 HOLD"
+            perf_str = f"{h['perf']:+.2f}%"
             print(f"{h['name']:<10} | {h['price']:<8.2f} | {perf_str:<7} | {h['rsi']:<5.1f} | {h['trend']:<7} | {sig_icon:<7} | {h['reason']}")
         print("─"*80 + "\n")
         
