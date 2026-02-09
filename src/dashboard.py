@@ -149,8 +149,9 @@ with tab2:
 # --- TAB 3: KONSOLE ---
 with tab3:
     st.caption("Live Output (stdout)")
-    safe_logs = html.escape(live_logs)
-    st.markdown(f'<div class="console-box">{safe_logs}</div>', unsafe_allow_html=True)
+    # Wir benutzen st.code statt markdown, damit Zeichen wie | oder # nicht als Markdown interpretiert werden
+    st.code(live_logs, language="text", wrap_lines=True)
+    
     if st.button("Refresh Log"): st.rerun()
     if st.checkbox("Auto-Refresh", value=True):
         time.sleep(REFRESH_RATE)

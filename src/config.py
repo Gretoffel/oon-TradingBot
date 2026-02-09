@@ -77,7 +77,7 @@ ATR_TAKE_PROFIT_MULTIPLIER = 4.0
 
 # Trailing Stop Einstellungen
 TRAILING_STOP_ACTIVATE_PCT = 1.0   # Früher aktivieren (schon ab 1% Gewinn)
-TRAILING_STOP_LOCK_IN_PCT = 0.5    # (Wird aktuell nicht genutzt, EMA Logik greift)
+TRAILING_STOP_LOCK_IN_PCT = 0.5    
 
 # Technical Indicators
 RSI_PERIOD = 14                
