@@ -81,7 +81,8 @@ with tab1:
             "name": "Aktie", 
             "qty": "Stk.", 
             "value_eur": "Wert", 
-            "performance_since_buy": "Perf."
+            "performance_since_buy": "Perf.",
+            "peak_pct": "Peak%"
         }
         existing_cols = [c for c in rename_map.keys() if c in df_portfolio.columns]
         df_portfolio = df_portfolio[existing_cols].rename(columns=rename_map)
@@ -94,6 +95,7 @@ with tab1:
                 "Aktie": st.column_config.TextColumn("Aktie", width="large"),
                 "Wert": st.column_config.NumberColumn("Wert (€)", format="%.2f €"),
                 "Stk.": st.column_config.NumberColumn("Stk.", format="%d"),
+                "Peak%": st.column_config.NumberColumn("Peak%", format="%.2f%%"),
             }
         )
     else:

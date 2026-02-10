@@ -111,6 +111,14 @@ NAME_TO_ISIN_FALLBACK = {
     "morgan chase": "US46625H1005",
     "andritz": "AT0000730007",
     "voest": "AT0000937503",
+    "applied materials": "US0382221051",
+    "netflix": "US64110L1061",
+    "salesforce": "US79466L3024",
+    "disney": "US2546871060",
+    "3m": "US88579Y1010",
+    "sap": "DE0007164600",
+    "siemens": "DE0007236101",
+    "infineon": "DE0006231004",
 }
 
 def get_isin_by_name(name: str) -> str | None:
@@ -239,8 +247,8 @@ def get_market_snapshot(portfolio_isins=None):
         if 'name' in e: blacklisted_ids.add(e['name'])
     
     try:
-        # Request 10 days data
-        data = yf.download(tickers, period="10d", interval="5m", progress=False, group_by='ticker')
+        # Request 40 days data
+        data = yf.download(tickers, period="40d", interval="30m", progress=False, group_by='ticker')
         
         for ticker in tickers:
             isin = isin_map.get(ticker)

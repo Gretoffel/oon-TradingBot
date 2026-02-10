@@ -84,8 +84,8 @@ TRAILING_STOP_LOCK_IN_PCT = 0.5
 RSI_PERIOD = 14                
 RSI_OVERBOUGHT = 85            
 RSI_OVERSOLD = 30       
-EMA_FAST = 9                   
-EMA_SLOW = 21                  
+EMA_FAST = 20
+EMA_SLOW = 50                  
 
 # Scoring Zones
 RSI_SWEET_SPOT_MIN = 45
