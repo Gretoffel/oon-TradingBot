@@ -1,6 +1,7 @@
 ﻿# OÖN Trading Bot
 An automated trading bot for the OÖN Börsenspiel (OÖN Stock Market Game) using AI-powered decision making and web automation.
-Overview
+
+### Overview
 This bot automates participation in the OÖN stock trading simulation by:
 
 Scraping portfolio data from the web interface
@@ -39,7 +40,7 @@ cd oon-TradingBot
 ## Install dependencies
 
 ```bash 
-pip install playwright python-dotenv streamlit
+pip install -r requirements.txt
 python -m playwright install
 ```
 
@@ -50,11 +51,11 @@ python -m playwright install
 ```
 BOERSEN_EMAIL=your_email@example.com
 BOERSEN_PASSWORD=your_password
-API_KEY=your_google_api_key
 ```
 
 > [!NOTE]
-> Never commit the .env file to version control. It's already included in .gitignore.
+> Never commit the .env file to version control. 
+> It's already included in .gitignore.
 
 ## Usage
 
@@ -63,14 +64,6 @@ API_KEY=your_google_api_key
 ```bash
 python main.py
 ```
-
-The bot will automatically:
-1. Start the **Web Dashboard** (usually at `http://localhost:8501`)
-2. Log into your OÖN account in a browser window
-3. Scrape current portfolio data
-4. Send data to Google AI for analysis
-5. Execute recommended trades
-6. Sleep for the configured duration (default: 3 min)
 
 **Do not close the opened browser windows manually**, as the bot needs them to interact with the sites.
 
@@ -107,16 +100,6 @@ Then run python main.py to test order execution without AI calls.
 
 ## Stopping the Bot
 > Press CTRL+C to gracefully shut down.
-
-## Configuration
-Key settings in config.py:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SUCCESS_WAIT_SECONDS` | 300 (5 min) | Wait time between successful cycles |
-| `ERROR_WAIT_SECONDS` | 10 | Wait time after errors before retry |
-| `TEST_MODE` | `False` | Enable/disable test mode (uses `TEST_ORDERS` instead of AI) |
-| `LOG_DIR` | `./logs` | Directory for transaction logs |
 
 ## Logs
 Transaction logs are stored in ./logs/ with daily rotation:
