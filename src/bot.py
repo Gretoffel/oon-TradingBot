@@ -73,6 +73,15 @@ async def run_bot_cycle(full_analysis=False):
             # Das passiert JEDES MAL (auch im Quick Check)
             # (Die Ergebnistabelle wird direkt in analyze_portfolio_safety ausgegeben)
             emergency_sells = analyze_portfolio_safety(depot_data, ai_defense_results, tech_snapshot)
+            
+            # Update Dashboard Data (Peak% wurde in analyze_portfolio_safety hinzugefügt)
+            remote_manager.update_status(
+                "Active", 
+                f"Modus: {mode_text}", 
+                balance=current_cash, 
+                portfolio=depot_data.get('stocks', []),
+                open_orders=depot_data.get('open_orders', [])
+            )
 
             # EXECUTE SELLS (Sofort!)
             if emergency_sells:

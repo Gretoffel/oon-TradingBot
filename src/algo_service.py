@@ -48,21 +48,20 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
         # --- NEU: HWM UPDATE LOGIK ---
         current_hwm = high_water_marks.get(isin, 0.0)
         
-        # 1. Reset bei Verlust: Wenn Position rot ist, HWM vergessen
-        if perf_pct < 0:
-            if current_hwm != 0:
-                high_water_marks[isin] = 0.0
-                hwm_updated = True
-        # 2. Update bei neuem Hoch
-        elif perf_pct > current_hwm:
+        # 1. Update bei neuem Hoch
+        # Wir loggen nur positive Hochs. Ein Reset bei Verlust ist für Trailing-Stop
+        # nicht ideal, da wir den "Alltime High" der Position sehen wollen.
+        if perf_pct > current_hwm:
             high_water_marks[isin] = perf_pct
-            current_hwm = perf_pct
             hwm_updated = True
             # Optional: Logge signifikante neue Hochs
             if perf_pct > config.HWM_TRIGGER_PCT:
                 print(f"   📈 New Peak für {name}: {perf_pct:.2f}%")
 
-        report["peak"] = current_hwm
+        # Wert für Report und Dashboard festlegen
+        peak_val = high_water_marks.get(isin, 0.0)
+        report["peak"] = peak_val
+        stock["peak_pct"] = peak_val # Für das Dashboard durchgereicht
 
         # 1. AI RED FLAG CHECK
         if ai_defense_results:
@@ -176,9 +175,13 @@ def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
                 
         health_reports.append(report)
 
-    # --- NEU: Speichern der HWMs ---
-    if hwm_updated:
-        remote_manager.save_high_water_marks(high_water_marks)
+    # --- NEU: Speichern der HWMs (und Cleanup) ---
+    # Nur HWMs behalten für ISINs, die wir aktuell noch besitzen
+    current_isins = {s.get('isin') for s in depot_data['stocks'] if s.get('isin')}
+    cleaned_hwms = {i: v for i, v in high_water_marks.items() if i in current_isins}
+    
+    if len(cleaned_hwms) != len(high_water_marks) or hwm_updated:
+        remote_manager.save_high_water_marks(cleaned_hwms)
 
     # --- PRINT PORTFOLIO HEALTH TABLE ---
     if health_reports:
