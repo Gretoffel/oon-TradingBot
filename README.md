@@ -69,7 +69,7 @@ python main.py
 
 ### Web Dashboard
 
-> [!INFO]
+> [!NOTE]
 > It is recommended to use ngrok in order to remotely access the dashboard.
 
 The included Streamlit dashboard provides a real-time interface to:
