@@ -1,8 +1,8 @@
-import config
+from core import config
 from datetime import datetime
-from market_data import get_market_snapshot, get_isin_by_name, is_market_open, get_minutes_until_close
-from utils import load_blacklist, calculate_fee
-import remote_manager  # <--- NEU: Für High Water Mark Speicher
+from services.market_data import get_market_snapshot, get_isin_by_name, is_market_open, get_minutes_until_close
+from core.utils import load_blacklist, calculate_fee
+from core import remote_manager
 
 def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):
     """

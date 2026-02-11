@@ -1,5 +1,5 @@
 import asyncio
-import config
+from core import config
 
 async def check_soft_crash(page):
     """

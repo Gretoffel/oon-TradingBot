@@ -4,7 +4,7 @@ import yaml
 from dotenv import load_dotenv
 
 # --- PATH CONFIGURATION ---
-SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT_ROOT = os.path.dirname(SRC_DIR)
 
 # Load .env

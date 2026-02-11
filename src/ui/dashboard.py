@@ -1,6 +1,9 @@
 import streamlit as st
-import remote_manager
-import utils
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core import remote_manager
+from core import utils
 import time
 import pandas as pd
 import html

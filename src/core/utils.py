@@ -4,7 +4,7 @@ import os
 import glob # <--- NEU
 import pandas as pd
 from datetime import datetime
-import config 
+from core import config
 
 def clean_amount(text):
     """Wandelt Text wie '1.200,50' in float um."""

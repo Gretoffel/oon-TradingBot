@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from utils import extract_json_list, get_todays_log_content
+from core.utils import extract_json_list, get_todays_log_content
 
 
 async def check_portfolio_safety(provider, stocks):

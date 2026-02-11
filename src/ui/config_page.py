@@ -3,8 +3,8 @@ import json
 import os
 import sys
 
-# Ensure src/ is on the path so ai_providers can be imported
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure src/ is on the path so packages can be imported
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai_providers import load_ai_config, save_ai_config, PROVIDERS, CONFIG_DIR
 

@@ -19,7 +19,7 @@ class GoogleStudioProvider(AIProvider):
         return self.page
 
     async def send_prompt(self, prompt: str):
-        from browser_utils import check_soft_crash
+        from services.browser_utils import check_soft_crash
 
         max_retries = 3
         response_text = ""
