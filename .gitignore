@@ -1,11 +1,22 @@
-*.png
-*.env
-google_session/*
-mainbackup.py
-temp.html
-logs/*
-tempLogCopy.txt
+# Python
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Environments
+venv/
+.env
+
+# Project
+google_session/
+logs/
+json/
+config/
 blackboard.txt
-backup/*
-json/*
-src/__pycache__/*

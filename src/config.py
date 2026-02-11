@@ -34,8 +34,10 @@ MINUTES_BEFORE_CLOSE_NO_BUY = 15
 USER_DATA_DIR = os.path.join(PROJECT_ROOT, "google_session")
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 JSON_DIR = os.path.join(PROJECT_ROOT, "json")
+CONFIG_DIR = os.path.join(PROJECT_ROOT, "config")
 SESSION_LOG_FILE = os.path.join(LOG_DIR, "session_live.log")
 BLACKLIST_FILE = os.path.join(JSON_DIR, "blacklist_stocks.json")
+AI_CONFIG_FILE = os.path.join(CONFIG_DIR, "ai_config.json")
 
 # Transaction Fees
 TRANSACTION_FEE_BUY = 20.0 
@@ -94,8 +96,18 @@ RSI_SWEET_SPOT_MAX = 80
 # Volumen-Filter
 MIN_VOLUME_RATIO = 1.1  
 
-# AI Studio URL
-AI_STUDIO_URL = "https://aistudio.google.com/app/prompts/new_chat"
+# --- WEB CONFIG ---
+# Wird aus config/ai_config.json gelesen (web_config: true/false)
+def _load_web_config():
+    import json
+    cfg_file = os.path.join(PROJECT_ROOT, "config", "ai_config.json")
+    try:
+        with open(cfg_file, "r", encoding="utf-8") as f:
+            return json.load(f).get("web_config", False)
+    except Exception:
+        return False
+
+WEB_CONFIG = _load_web_config()
 
 # --- TEST MODE ---
 TEST_MODE = False  

@@ -12,6 +12,12 @@ streamlit==1.30.0
 # Configuration
 python-dotenv==1.0.1
 
+# AI Provider APIs
+openai>=1.12.0
+anthropic>=0.18.0
+google-generativeai>=0.4.0
+httpx>=0.27.0
+
 # additional
 pytz>=2023.3
 tzdata>=2023.3
