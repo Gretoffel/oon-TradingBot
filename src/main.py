@@ -5,7 +5,7 @@ import sys
 import time
 import os
 from bot import run_bot_cycle
-from config import CHECK_INTERVAL_SECONDS, AI_CYCLE_INTERVAL_SECONDS, SESSION_LOG_FILE, LOG_DIR, ERROR_WAIT_SECONDS
+from config import CHECK_INTERVAL_SECONDS, AI_CYCLE_INTERVAL_SECONDS, SESSION_LOG_FILE, LOG_DIR, ERROR_WAIT_SECONDS, WEB_CONFIG, CONFIG_DIR
 import remote_manager
 
 # --- LOGGER SETUP ---
@@ -98,13 +98,62 @@ async def main_loop():
             print(f"🔄 Starte neu in {ERROR_WAIT_SECONDS} Sekunden...")
             await asyncio.sleep(ERROR_WAIT_SECONDS)
 
+def run_config_page():
+    """Open the AI config page and wait until the user clicks 'Start'."""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_script = os.path.join(current_dir, "config_page.py")
+    signal_file = os.path.join(CONFIG_DIR, ".start_bot")
+
+    # Remove old signal
+    if os.path.exists(signal_file):
+        os.remove(signal_file)
+
+    print("  AI Konfiguration wird geoeffnet...")
+    config_process = subprocess.Popen(
+        [sys.executable, "-m", "streamlit", "run", config_script,
+         "--browser.gatherUsageStats", "false",
+         "--server.port", "8502",
+         "--theme.base", "dark"]
+    )
+
+    try:
+        # Wait for user to save & start
+        while not os.path.exists(signal_file):
+            time.sleep(1)
+            # If the config process died, abort
+            if config_process.poll() is not None:
+                print("  Config-Seite wurde geschlossen ohne zu speichern.")
+                return False
+    finally:
+        config_process.terminate()
+        try: config_process.wait(timeout=3)
+        except: config_process.kill()
+        # Clean up signal file
+        if os.path.exists(signal_file):
+            os.remove(signal_file)
+
+    print("  AI Konfiguration gespeichert!")
+    return True
+
+
 if __name__ == "__main__":
     dashboard_process = None
     current_dir = os.path.dirname(os.path.abspath(__file__))
     dashboard_script = os.path.join(current_dir, "dashboard.py")
-    
+
     try:
-        print("🖥️ Starte Dashboard...")
+        # Show config page first if WEB_CONFIG=true
+        if WEB_CONFIG:
+            if not run_config_page():
+                print("Abgebrochen.")
+                sys.exit(0)
+
+        from ai_providers import load_ai_config, PROVIDERS
+        ai_cfg = load_ai_config()
+        provider_name = ai_cfg.get("provider", "google_studio")
+        print(f"  AI Provider: {PROVIDERS.get(provider_name, provider_name)}")
+
+        print("  Starte Dashboard...")
         dashboard_process = subprocess.Popen(
             [sys.executable, "-m", "streamlit", "run", dashboard_script, "--browser.gatherUsageStats", "false", "--server.headless", "true", "--theme.base", "dark"]
         )
@@ -112,7 +161,7 @@ if __name__ == "__main__":
         asyncio.run(main_loop())
 
     except KeyboardInterrupt:
-        print("\n👋 Beende Hauptprogramm...")
+        print("\n  Beende Hauptprogramm...")
     finally:
         if dashboard_process:
             dashboard_process.terminate()

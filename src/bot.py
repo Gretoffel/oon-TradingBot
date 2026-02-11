@@ -6,11 +6,11 @@ from utils import print_analysis_summary
 from actions import execute_buy_order, execute_sell_order
 from browser_utils import create_browser_context
 from oon_service import login, scan_depot
-from algo_service import calculate_algo_decisions
 
 from market_data import get_market_snapshot, TICKER_MAPPING, is_market_open
 from ai_service import check_portfolio_safety, analyze_candidates_deep_dive
 from algo_service import analyze_portfolio_safety, synthesize_decisions
+from ai_providers import create_provider, load_ai_config
 
 async def run_bot_cycle(full_analysis=False):
     """
@@ -26,7 +26,8 @@ async def run_bot_cycle(full_analysis=False):
 
     async with async_playwright() as p:
         context = await create_browser_context(p)
-        
+        ai_provider = create_provider(browser_context=context)
+
         try:
             page = context.pages[0] if context.pages else await context.new_page()
 
@@ -67,7 +68,7 @@ async def run_bot_cycle(full_analysis=False):
 
                 if tradeable_stocks:
                     remote_manager.update_status("Defense", f"KI Defense Check...", balance=current_cash)
-                    ai_defense_results = await check_portfolio_safety(page, context, tradeable_stocks)
+                    ai_defense_results = await check_portfolio_safety(ai_provider, tradeable_stocks)
             
             # Analysiere Safety (Stop-Loss, Break-Even, EMA Trend)
             # Das passiert JEDES MAL (auch im Quick Check)
@@ -118,7 +119,7 @@ async def run_bot_cycle(full_analysis=False):
                     top_candidates = list(tech_snapshot.values())[:config.MAX_AI_CANDIDATES]
                     print(f"   📊 Passing top {len(top_candidates)} candidates to AI...")
                     remote_manager.update_status("Synthesis", "KI Deep-Dive (Buying)...", balance=current_cash)
-                    ai_matrix = await analyze_candidates_deep_dive(page, context, top_candidates)
+                    ai_matrix = await analyze_candidates_deep_dive(ai_provider, top_candidates)
                 
                 final_buys = synthesize_decisions(depot_data, tech_snapshot, ai_matrix)
                 
@@ -150,4 +151,5 @@ async def run_bot_cycle(full_analysis=False):
             remote_manager.update_status("Fehler", str(e), balance=current_cash)
             
         finally:
+            await ai_provider.cleanup()
             await context.close()
