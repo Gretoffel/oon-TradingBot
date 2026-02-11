@@ -3,7 +3,7 @@
     "allow": [
       "Bash(tree:*)"
     ],
-    "deny": [],
+    "deny": ["../.env"],
     "ask": []
   }
 }
