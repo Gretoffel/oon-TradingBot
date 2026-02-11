@@ -99,6 +99,8 @@ TEST_ORDERS = [
 Then run python main.py to test order execution without AI calls.
 
 ## Stopping the Bot
+
+> [!IMPORTANT]
 > Press CTRL+C to gracefully shut down.
 
 ## Logs
