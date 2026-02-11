@@ -265,23 +265,6 @@ async def execute_buy_order(page, search_term, budget_eur, ...):
 
 ### CRITICAL (Fix immediately!)
 
-#### 1. **Exposed Credentials**
-- **File:** `.env`
-- **Problem:** Real login credentials in the repo
-- **Risk:** Account takeover, identity theft
-- **Fix:** See Section 1
-
-#### 2. **65MB Browser Data in Repo**
-- **Folder:** `google_session/`
-- **Contents:** Cookies, cache, browsing history (PERSONAL DATA!)
-- **Risk:** Privacy violation, legal issues
-- **Fix:**
-```bash
-git rm -rf google_session/
-echo "google_session/" >> .gitignore
-git commit -m "Remove personal browser data"
-```
-
 #### 3. **No Tests**
 - **Currently:** 0 tests
 - **Risk:** Any update can break everything
