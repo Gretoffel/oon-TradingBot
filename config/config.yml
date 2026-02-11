@@ -1,0 +1,87 @@
+# ============================================================
+# OON Trading Bot - Configuration
+# ============================================================
+# All trading parameters in one place.
+# Credentials stay in .env (not here!)
+# ============================================================
+
+# --- URLs ---
+urls:
+  login: "https://www.oon-boersespiel.at/de/start.html?login=open"
+  depot: "https://www.oon-boersespiel.at/de/boersespiel.html#/personal/portfolio//detail/overview"
+
+# --- Market Timing ---
+# Closing times (Local Time CET)
+market_timing:
+  close_hour_eu: 17
+  close_minute_eu: 30
+  close_hour_us: 22
+  close_minute_us: 0
+  minutes_before_close_to_sell: 0     # Swing Trading: no auto-sell before close
+  minutes_before_close_no_buy: 15     # Don't open new positions right before close
+
+# --- Transaction Fees ---
+fees:
+  buy: 20.0
+  sell: 20.0
+
+# --- Cycle Timing ---
+cycle_timing:
+  ai_cycle_interval_seconds: 900      # 15 min - big AI cycle (buying)
+  check_interval_seconds: 60          # 1 min - fast safety check (selling / stop-loss)
+  error_wait_seconds: 5
+
+# --- Risk Management ---
+risk_management:
+  min_trade_volume: 6000.0
+  max_invest_per_stock: 11500.0
+  min_cash_for_new_trade: 6000.0
+  max_new_positions_per_cycle: 3
+
+# --- 3-Phase-Loop Strategy ---
+strategy:
+  max_ai_candidates: 15
+  min_final_score: 78
+  ai_weight: 0.5
+  tech_weight: 0.5
+  portfolio_diversity: 5
+  earnings_days_threshold: 1
+
+# --- Take Profit / Stop Loss (Swing Mode) ---
+profit_loss:
+  take_profit_hard_pct: 20.0
+  stop_loss_hard_pct: -2.5
+
+# --- High Water Mark (Smart Trailing Stop) ---
+high_water_mark:
+  trigger_pct: 4.0                    # Activate at 4% profit (buffer for fees & noise)
+  drop_threshold: 1.5                 # 1.5% distance from high
+
+# --- ATR-based Risk Management ---
+atr:
+  stop_loss_multiplier: 2.0
+  take_profit_multiplier: 4.0
+
+# --- Trailing Stop ---
+trailing_stop:
+  activate_pct: 1.0                   # Activate at 1% profit
+  lock_in_pct: 0.5
+
+# --- Technical Indicators ---
+technical_indicators:
+  rsi_period: 14
+  rsi_overbought: 85
+  rsi_oversold: 30
+  ema_fast: 20
+  ema_slow: 50
+  rsi_sweet_spot_min: 45
+  rsi_sweet_spot_max: 80
+  min_volume_ratio: 1.1
+
+# --- Browser ---
+browser:
+  show: true                          # Can be overridden via env BROWSER_SHOW
+
+# --- Test Mode ---
+test_mode:
+  enabled: false
