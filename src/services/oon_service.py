@@ -1,9 +1,9 @@
 import asyncio
 import re
-import config
-from utils import clean_amount
-import remote_manager
-import market_data
+from core import config
+from core.utils import clean_amount
+from core import remote_manager
+from services import market_data
 
 async def login(page):
     """Führt den Login bei OON durch."""
@@ -105,7 +105,7 @@ async def scan_depot(page):
 
                 # --- NEW: ISIN RESOLUTION FALLBACK ---
                 if isin == "N/A" or not isin:
-                    from market_data import TICKER_MAPPING, get_isin_by_name
+                    from services.market_data import TICKER_MAPPING, get_isin_by_name
                     # Try fuzzy matching by name
                     resolved_isin = get_isin_by_name(name)
                     if resolved_isin:

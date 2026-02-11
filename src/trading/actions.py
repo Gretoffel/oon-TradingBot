@@ -1,8 +1,8 @@
 import asyncio
 import math
 import re
-from utils import clean_amount, log_success, add_to_blacklist
-from config import OON_DEPOT_URL, MIN_TRADE_VOLUME, MAX_INVEST_PER_STOCK
+from core.utils import clean_amount, log_success, add_to_blacklist
+from core.config import OON_DEPOT_URL, MIN_TRADE_VOLUME, MAX_INVEST_PER_STOCK
 
 async def click_cancel_button(page):
     """Hilfsfunktion: Versucht, den Abbrechen-Button zu drücken."""
@@ -207,7 +207,7 @@ async def execute_buy_order(page, search_term, budget_eur, real_name="Unbekannt"
             # Check for hidden input timeout (Blacklist candidate)
             # "waiting for locator(...) to be visible" -> Timeout
             if "Timeout" in err_msg and "numOfShares" in err_msg:
-                from market_data import is_market_open, TICKER_MAPPING
+                from services.market_data import is_market_open, TICKER_MAPPING
                 ticker = TICKER_MAPPING.get(search_term, search_term)
                 if is_market_open(ticker):
                     print("⛔ Input-Feld Timeout while market open -> Vermutlich gesperrt/hidden (Blacklist).")

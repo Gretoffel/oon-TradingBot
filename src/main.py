@@ -4,9 +4,9 @@ import subprocess
 import sys
 import time
 import os
-from bot import run_bot_cycle
-from config import CHECK_INTERVAL_SECONDS, AI_CYCLE_INTERVAL_SECONDS, SESSION_LOG_FILE, LOG_DIR, ERROR_WAIT_SECONDS, WEB_CONFIG, CONFIG_DIR
-import remote_manager
+from trading.bot import run_bot_cycle
+from core.config import CHECK_INTERVAL_SECONDS, AI_CYCLE_INTERVAL_SECONDS, SESSION_LOG_FILE, LOG_DIR, ERROR_WAIT_SECONDS, WEB_CONFIG, CONFIG_DIR
+from core import remote_manager
 
 # --- LOGGER SETUP ---
 class DualLogger:
@@ -101,7 +101,7 @@ async def main_loop():
 def run_config_page():
     """Open the AI config page and wait until the user clicks 'Start'."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_script = os.path.join(current_dir, "config_page.py")
+    config_script = os.path.join(current_dir, "ui", "config_page.py")
     signal_file = os.path.join(CONFIG_DIR, ".start_bot")
 
     # Remove old signal
@@ -139,7 +139,7 @@ def run_config_page():
 if __name__ == "__main__":
     dashboard_process = None
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    dashboard_script = os.path.join(current_dir, "dashboard.py")
+    dashboard_script = os.path.join(current_dir, "ui", "dashboard.py")
 
     try:
         # Show config page first if WEB_CONFIG=true

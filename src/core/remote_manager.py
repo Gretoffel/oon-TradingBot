@@ -2,7 +2,7 @@ import json
 import os
 import time
 from collections import deque
-from config import JSON_DIR, SESSION_LOG_FILE
+from core.config import JSON_DIR, SESSION_LOG_FILE
 
 STATE_FILE = os.path.join(JSON_DIR, "bot_state.json")
 CONTROL_FILE = os.path.join(JSON_DIR, "bot_control.json")

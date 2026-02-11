@@ -1,8 +1,8 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import config
-from utils import load_blacklist
+from core import config
+from core.utils import load_blacklist
 
 # AGGRESSIVE TICKER LIST (High Beta / Momentum / Hype)
 TICKER_MAPPING = {

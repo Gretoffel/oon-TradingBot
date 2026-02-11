@@ -1,15 +1,15 @@
 import asyncio
 from playwright.async_api import async_playwright
-import config
-import remote_manager
-from utils import print_analysis_summary
-from actions import execute_buy_order, execute_sell_order
-from browser_utils import create_browser_context
-from oon_service import login, scan_depot
+from core import config
+from core import remote_manager
+from core.utils import print_analysis_summary
+from trading.actions import execute_buy_order, execute_sell_order
+from services.browser_utils import create_browser_context
+from services.oon_service import login, scan_depot
 
-from market_data import get_market_snapshot, TICKER_MAPPING, is_market_open
-from ai_service import check_portfolio_safety, analyze_candidates_deep_dive
-from algo_service import analyze_portfolio_safety, synthesize_decisions
+from services.market_data import get_market_snapshot, TICKER_MAPPING, is_market_open
+from trading.ai_service import check_portfolio_safety, analyze_candidates_deep_dive
+from trading.algo_service import analyze_portfolio_safety, synthesize_decisions
 from ai_providers import create_provider, load_ai_config
 
 async def run_bot_cycle(full_analysis=False):
