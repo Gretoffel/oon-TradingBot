@@ -1,6 +1,6 @@
 # CODE REVIEW - OON Trading Bot
 
-**Review Date:** 2026-02-11
+****Review Date:** 2026-02-11
 **Reviewed by:** Claude (Automated Code Analysis)
 **Codebase Size:** ~2,324 lines of Python, ~66MB total
 
@@ -837,5 +837,3 @@ async def resolve_isin_from_row(row):
 ---
 
 **Review created on:** 2026-02-11
-**Tool:** Claude Code (Automated Analysis)
-**Version:** 1.0

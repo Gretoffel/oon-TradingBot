@@ -1,6 +1,7 @@
 # Python
 *.pyc
 **/__pycache__/
+**/__init__.py
 .pytest_cache/
 .coverage
 htmlcov/
