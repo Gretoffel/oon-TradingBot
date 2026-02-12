@@ -5,7 +5,8 @@
       "Bash(pip install:*)",
       "Bash(python:*)",
       "Bash(git mv:*)",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(dir:*)"
     ],
     "deny": [
       "../.env"
