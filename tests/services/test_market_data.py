@@ -33,6 +33,9 @@ from services.market_data import (
     is_market_open,
 )
 
+# Save reference to real datetime class BEFORE any patching replaces it
+_real_datetime = dt.datetime
+
 
 # =========================================================================
 # get_isin_by_name
@@ -350,7 +353,7 @@ class TestIsMarketOpen:
         """Create a fake datetime for a specific weekday and time.
         2026-02-11 is a Wednesday.
         """
-        return dt.datetime(year, month, day, hour, minute)
+        return _real_datetime(year, month, day, hour, minute)
 
     @patch("datetime.datetime")
     def test_eu_market_open_midday(self, mock_dt):
@@ -410,7 +413,7 @@ class TestGetMinutesUntilClose:
 
     @patch("datetime.datetime")
     def test_eu_market_minutes_remaining(self, mock_dt, monkeypatch):
-        mock_dt.now.return_value = dt.datetime(2026, 2, 11, 16, 0)  # 16:00
+        mock_dt.now.return_value = _real_datetime(2026, 2, 11, 16, 0)  # 16:00
         monkeypatch.setattr("services.market_data.config.MARKET_CLOSE_HOUR_EU", 17)
         monkeypatch.setattr("services.market_data.config.MARKET_CLOSE_MINUTE_EU", 30)
         result = get_minutes_until_close("EBS.VI")
@@ -418,7 +421,7 @@ class TestGetMinutesUntilClose:
 
     @patch("datetime.datetime")
     def test_us_market_minutes_remaining(self, mock_dt, monkeypatch):
-        mock_dt.now.return_value = dt.datetime(2026, 2, 11, 20, 0)  # 20:00 CET
+        mock_dt.now.return_value = _real_datetime(2026, 2, 11, 20, 0)  # 20:00 CET
         monkeypatch.setattr("services.market_data.config.MARKET_CLOSE_HOUR_US", 22)
         monkeypatch.setattr("services.market_data.config.MARKET_CLOSE_MINUTE_US", 0)
         result = get_minutes_until_close("TSLA")
@@ -426,7 +429,7 @@ class TestGetMinutesUntilClose:
 
     @patch("datetime.datetime")
     def test_negative_when_past_close(self, mock_dt, monkeypatch):
-        mock_dt.now.return_value = dt.datetime(2026, 2, 11, 23, 0)  # 23:00
+        mock_dt.now.return_value = _real_datetime(2026, 2, 11, 23, 0)  # 23:00
         monkeypatch.setattr("services.market_data.config.MARKET_CLOSE_HOUR_US", 22)
         monkeypatch.setattr("services.market_data.config.MARKET_CLOSE_MINUTE_US", 0)
         result = get_minutes_until_close("AAPL")
@@ -434,7 +437,7 @@ class TestGetMinutesUntilClose:
 
     @patch("datetime.datetime")
     def test_de_uses_eu_times(self, mock_dt, monkeypatch):
-        mock_dt.now.return_value = dt.datetime(2026, 2, 11, 15, 0)
+        mock_dt.now.return_value = _real_datetime(2026, 2, 11, 15, 0)
         monkeypatch.setattr("services.market_data.config.MARKET_CLOSE_HOUR_EU", 17)
         monkeypatch.setattr("services.market_data.config.MARKET_CLOSE_MINUTE_EU", 30)
         result = get_minutes_until_close("SAP.DE")

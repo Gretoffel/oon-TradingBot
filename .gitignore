@@ -20,3 +20,5 @@ google_session/
 logs/
 json/
 blackboard.txt
+
+.claude/settings.local.json

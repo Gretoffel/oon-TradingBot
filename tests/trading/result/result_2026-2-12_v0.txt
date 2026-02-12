@@ -1,0 +1,115 @@
+Test Results: result_2026-2-12_v0.txt
+Scope: trading
+Date: 2026-02-12 12:06:19
+Exit Code: 0
+======================================================================
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\sebas\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\sebas\Desktop\oon-TradingBot
+configfile: pytest.ini
+collecting ... collected 78 items
+
+tests/trading/test_actions.py::TestClickCancelButton::test_returns_true_when_cancel_button_found PASSED [  1%]
+tests/trading/test_actions.py::TestClickCancelButton::test_returns_true_when_close_icon_found PASSED [  2%]
+tests/trading/test_actions.py::TestClickCancelButton::test_returns_false_when_nothing_found PASSED [  3%]
+tests/trading/test_actions.py::TestClickCancelButton::test_returns_false_on_exception PASSED [  5%]
+tests/trading/test_actions.py::TestExecuteBuyOrder::test_rejects_budget_below_minimum PASSED [  6%]
+tests/trading/test_actions.py::TestExecuteBuyOrder::test_rejects_zero_budget PASSED [  7%]
+tests/trading/test_actions.py::TestExecuteBuyOrder::test_caps_budget_at_max PASSED [  8%]
+tests/trading/test_actions.py::TestExecuteBuyOrder::test_exact_minimum_budget_proceeds PASSED [ 10%]
+tests/trading/test_actions.py::TestExecuteBuyOrder::test_handles_new_paper_button_not_found PASSED [ 11%]
+tests/trading/test_actions.py::TestExecuteBuyOrder::test_returns_cancelled_other_on_exception PASSED [ 12%]
+tests/trading/test_actions.py::TestExecuteSellOrder::test_handles_missing_table PASSED [ 14%]
+tests/trading/test_actions.py::TestExecuteSellOrder::test_handles_exception_in_flow PASSED [ 15%]
+tests/trading/test_actions.py::TestExecuteSellOrder::test_calls_log_success_on_sell PASSED [ 16%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_empty_stocks_returns_empty PASSED [ 17%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_none_stocks_returns_empty PASSED [ 19%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_sends_prompt_to_provider PASSED [ 20%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_prompt_contains_stock_names PASSED [ 21%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_parses_hold_response PASSED [ 23%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_parses_emergency_sell_response PASSED [ 24%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_returns_empty_on_none_response PASSED [ 25%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_returns_empty_on_garbage_response PASSED [ 26%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_handles_markdown_fenced_response PASSED [ 28%]
+tests/trading/test_ai_service.py::TestCheckPortfolioSafety::test_multiple_stocks PASSED [ 29%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_empty_candidates_returns_empty PASSED [ 30%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_none_candidates_returns_empty PASSED [ 32%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_sends_prompt_to_provider PASSED [ 33%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_prompt_contains_candidate_info PASSED [ 34%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_parses_valid_response PASSED [ 35%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_returns_empty_on_none_response PASSED [ 37%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_returns_empty_on_invalid_json PASSED [ 38%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_multiple_candidates PASSED [ 39%]
+tests/trading/test_ai_service.py::TestAnalyzeCandidatesDeepDive::test_handles_markdown_fenced_response PASSED [ 41%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_no_stocks_returns_empty PASSED [ 42%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_hold_when_everything_is_fine PASSED [ 43%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_stop_loss_triggers PASSED [ 44%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_stop_loss_exact_boundary PASSED [ 46%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_take_profit_triggers PASSED [ 47%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_hwm_trailing_stop_triggers PASSED [ 48%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_hwm_no_trigger_within_threshold PASSED [ 50%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_hwm_not_active_below_trigger PASSED [ 51%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_ai_emergency_sell PASSED [ 52%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_ai_hold_no_sell PASSED [ 53%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_eod_sell_when_enabled PASSED [ 55%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_eod_no_sell_when_disabled PASSED [ 56%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_rsi_overbought_sell PASSED [ 57%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_ema_trailing_stop PASSED [ 58%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_trend_break_negative_perf PASSED [ 60%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_market_closed_wait_signal PASSED [ 61%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_skips_pending_sell_orders PASSED [ 62%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_no_tech_data_hold PASSED [ 64%]
+tests/trading/test_algo_service.py::TestAnalyzePortfolioSafety::test_fuzzy_tech_match_by_name PASSED [ 65%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_basic_buy_decision PASSED [ 66%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_insufficient_cash_returns_empty PASSED [ 67%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_cash_minus_pending_orders PASSED [ 69%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_portfolio_diversity_limit PASSED [ 70%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_skips_already_owned PASSED [ 71%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_skips_pending_buy PASSED [ 73%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_score_below_minimum_filtered PASSED [ 74%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_earnings_danger_blocks_buy PASSED [ 75%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_no_ai_data_skips_candidate PASSED [ 76%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_multiple_candidates_sorted_by_score PASSED [ 78%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_max_positions_per_cycle_cap PASSED [ 79%]
+tests/trading/test_algo_service.py::TestSynthesizeDecisions::test_invest_amount_capped_by_max PASSED [ 80%]
+tests/trading/test_algo_service.py::TestCalculateAlgoDecisions::test_returns_empty_list PASSED [ 82%]
+tests/trading/test_algo_service.py::TestCalculateAlgoDecisions::test_returns_empty_with_data PASSED [ 83%]
+tests/trading/test_bot.py::TestRunBotCycleQuickCheck::test_completes_without_error PASSED [ 84%]
+tests/trading/test_bot.py::TestRunBotCycleQuickCheck::test_calls_login_and_scan PASSED [ 85%]
+tests/trading/test_bot.py::TestRunBotCycleQuickCheck::test_calls_analyze_portfolio_safety PASSED [ 87%]
+tests/trading/test_bot.py::TestRunBotCycleQuickCheck::test_does_not_call_ai_in_quick_mode PASSED [ 88%]
+tests/trading/test_bot.py::TestRunBotCycleQuickCheck::test_does_not_call_synthesize_in_quick_mode PASSED [ 89%]
+tests/trading/test_bot.py::TestRunBotCycleQuickCheck::test_executes_emergency_sells PASSED [ 91%]
+tests/trading/test_bot.py::TestRunBotCycleQuickCheck::test_cleanup_called PASSED [ 92%]
+tests/trading/test_bot.py::TestRunBotCycleFullStrategy::test_completes_without_error PASSED [ 93%]
+tests/trading/test_bot.py::TestRunBotCycleFullStrategy::test_calls_ai_defense PASSED [ 94%]
+tests/trading/test_bot.py::TestRunBotCycleFullStrategy::test_calls_synthesize_decisions PASSED [ 96%]
+tests/trading/test_bot.py::TestRunBotCycleFullStrategy::test_executes_buy_orders PASSED [ 97%]
+tests/trading/test_bot.py::TestRunBotCycleFullStrategy::test_skips_buy_when_insufficient_cash PASSED [ 98%]
+tests/trading/test_bot.py::TestRunBotCycleFullStrategy::test_handles_exception_gracefully PASSED [100%]
+
+============================== warnings summary ===============================
+tests/trading/test_actions.py::TestExecuteSellOrder::test_handles_missing_table
+tests/trading/test_actions.py::TestExecuteSellOrder::test_calls_log_success_on_sell
+  C:\Users\sebas\Desktop\oon-TradingBot\src\trading\actions.py:353: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    await click_cancel_button(page)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/trading/test_actions.py::TestExecuteSellOrder::test_calls_log_success_on_sell
+  C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3312.0_x64__qbz5n2kfra8p0\Lib\asyncio\events.py:89: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    self._context.run(self._callback, *self._args)
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/trading/test_bot.py::TestRunBotCycleQuickCheck::test_calls_analyze_portfolio_safety
+  C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3312.0_x64__qbz5n2kfra8p0\Lib\unittest\mock.py:2177: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    if getattr(self, "_mock_methods", None) is not None:
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 78 passed, 4 warnings in 10.03s =======================
+
