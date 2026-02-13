@@ -3,7 +3,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core import remote_manager
-from core import utils
+from core import transaction_log
 import time
 import pandas as pd
 import html
@@ -127,7 +127,7 @@ with tab1:
 # --- TAB 2: VERLAUF (NEU) ---
 with tab2:
     st.subheader("Transaktions-Historie")
-    history_data = utils.get_transaction_history()
+    history_data = transaction_log.get_transaction_history()
     
     if history_data:
         df_hist = pd.DataFrame(history_data)
@@ -137,15 +137,15 @@ with tab2:
             width="stretch",
             hide_index=True,
             column_config={
-                "Datum": st.column_config.TextColumn("Datum", width="small"),
-                "Zeit": st.column_config.TextColumn("Zeit", width="small"),
-                "Aktion": st.column_config.TextColumn("Aktion", width="small"),
-                "Name": st.column_config.TextColumn("Name", width="medium"),
-                "Menge": st.column_config.NumberColumn("Stk."),
-                "Preis": st.column_config.NumberColumn("Kurs (€)", format="%.2f €"),
-                "Profit": st.column_config.TextColumn("Profit", width="small"),
-                "Grund": st.column_config.TextColumn("KI Begründung", width="large"),
-                "ISIN": st.column_config.TextColumn("ISIN", width="small"),
+                "date": st.column_config.TextColumn("Date", width="small"),
+                "time": st.column_config.TextColumn("Time", width="small"),
+                "action": st.column_config.TextColumn("Action", width="small"),
+                "name": st.column_config.TextColumn("Name", width="medium"),
+                "quantity": st.column_config.NumberColumn("Qty"),
+                "price": st.column_config.NumberColumn("Price", format="%.2f EUR"),
+                "profit": st.column_config.TextColumn("Profit", width="small"),
+                "reason": st.column_config.TextColumn("AI Reason", width="large"),
+                "isin": st.column_config.TextColumn("ISIN", width="small"),
             }
         )
     else:

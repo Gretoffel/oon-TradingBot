@@ -3,7 +3,7 @@ import json
 import yaml
 from dotenv import load_dotenv
 
-# --- PATH CONFIGURATION ---
+# --- Path Configuration ---
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT_ROOT = os.path.dirname(SRC_DIR)
 
@@ -23,10 +23,25 @@ SESSION_LOG_FILE = os.path.join(LOG_DIR, "session_live.log")
 BLACKLIST_FILE = os.path.join(JSON_DIR, "blacklist_stocks.json")
 AI_CONFIG_FILE = os.path.join(CONFIG_DIR, "ai_config.json")
 
-# --- Load YAML config ---
-_config_path = os.path.join(CONFIG_DIR, "config.yml")
-with open(_config_path, "r", encoding="utf-8") as _f:
-    _cfg = yaml.safe_load(_f)
+
+def _load_yaml_config():
+    """Load the main YAML configuration file and return the parsed dict."""
+    config_path = os.path.join(CONFIG_DIR, "config.yml")
+    with open(config_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def _load_web_config():
+    """Load the web_config flag from ai_config.json. Returns False on any error."""
+    cfg_file = os.path.join(CONFIG_DIR, "ai_config.json")
+    try:
+        with open(cfg_file, "r", encoding="utf-8") as f:
+            return json.load(f).get("web_config", False)
+    except Exception:
+        return False
+
+
+_cfg = _load_yaml_config()
 
 # --- URLs ---
 OON_LOGIN_URL = _cfg["urls"]["login"]
@@ -98,12 +113,4 @@ TEST_MODE = _cfg["test_mode"]["enabled"]
 TEST_ORDERS = []
 
 # --- Web Config ---
-def _load_web_config():
-    cfg_file = os.path.join(CONFIG_DIR, "ai_config.json")
-    try:
-        with open(cfg_file, "r", encoding="utf-8") as f:
-            return json.load(f).get("web_config", False)
-    except Exception:
-        return False
-
 WEB_CONFIG = _load_web_config()

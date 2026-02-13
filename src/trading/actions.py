@@ -1,7 +1,9 @@
 import asyncio
 import math
 import re
-from core.utils import clean_amount, log_success, add_to_blacklist
+from core.parsing import clean_amount
+from core.transaction_log import log_success
+from core.blacklist import add_to_blacklist
 from core.config import OON_DEPOT_URL, MIN_TRADE_VOLUME, MAX_INVEST_PER_STOCK
 
 async def click_cancel_button(page):

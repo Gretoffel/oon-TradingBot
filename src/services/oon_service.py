@@ -1,7 +1,7 @@
 import asyncio
 import re
 from core import config
-from core.utils import clean_amount
+from core.parsing import clean_amount
 from core import remote_manager
 from services import market_data
 
