@@ -28,6 +28,9 @@ async def run_bot_cycle(full_analysis=False):
         context = await create_browser_context(p)
         ai_provider = create_provider(browser_context=context)
 
+        # fixing bug
+        current_cash = 0.0
+
         try:
             page = context.pages[0] if context.pages else await context.new_page()
 
