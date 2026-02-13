@@ -22,3 +22,6 @@ json/
 blackboard.txt
 
 .claude/settings.local.json
+
+# Tests
+**/result/*
