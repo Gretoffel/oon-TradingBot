@@ -19,17 +19,18 @@ def _read_state_file():
     if not os.path.exists(STATE_FILE):
         return {}
     try:
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+        with open(STATE_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except Exception as e:
+        print(f"Warning: Failed to read state file: {e}")
         return {}
 
 
 def _write_state_file(data):
     """Write data to the state file as JSON."""
     try:
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+        with open(STATE_FILE, "w", encoding="utf-8") as file:
+            json.dump(data, file, indent=4)
     except Exception as e:
         print(f"Warning: Failed to write state file: {e}")
 
@@ -73,8 +74,8 @@ def get_command():
     if not os.path.exists(CONTROL_FILE):
         return "run"
     try:
-        with open(CONTROL_FILE, "r", encoding="utf-8") as f:
-            return json.load(f).get("command", "run")
+        with open(CONTROL_FILE, "r", encoding="utf-8") as file:
+            return json.load(file).get("command", "run")
     except Exception:
         return "run"
 
@@ -82,8 +83,8 @@ def get_command():
 def set_command(command):
     """Write a control command to disk."""
     _ensure_json_dir()
-    with open(CONTROL_FILE, "w", encoding="utf-8") as f:
-        json.dump({"command": command}, f)
+    with open(CONTROL_FILE, "w", encoding="utf-8") as file:
+        json.dump({"command": command}, file)
 
 
 def get_state():
@@ -91,8 +92,8 @@ def get_state():
     if not os.path.exists(STATE_FILE):
         return {"phase": "Offline", "details": "Waiting...", "balance": 0, "portfolio": [], "high_water_marks": {}}
     try:
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        with open(STATE_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
     except Exception:
         return {"phase": "Error", "balance": 0, "portfolio": [], "high_water_marks": {}}
 
@@ -102,8 +103,8 @@ def get_live_logs(lines=50):
     if not os.path.exists(SESSION_LOG_FILE):
         return "Waiting for log data..."
     try:
-        with open(SESSION_LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
-            last_lines = deque(f, maxlen=lines)
+        with open(SESSION_LOG_FILE, "r", encoding="utf-8", errors="replace") as file:
+            last_lines = deque(file, maxlen=lines)
         return "".join(last_lines)
     except Exception as e:
         return f"Error: {e}"

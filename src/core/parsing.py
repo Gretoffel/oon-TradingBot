@@ -7,6 +7,7 @@ def clean_amount(text):
     if not text:
         return 0.0
 
+    # Strip everything except digits, comma, dot, and minus sign
     cleaned = re.sub(r'[^\d,.-]', '', str(text))
 
     if "," in cleaned and "." in cleaned:
@@ -43,6 +44,7 @@ def extract_json_list(text):
 
     try:
         text = text.replace('```json', '').replace('```', '')
+        # Remove footnote references like [1], [2] that AI responses may include
         text = re.sub(r'\[\d+\]', '', text)
 
         start = text.find('[')

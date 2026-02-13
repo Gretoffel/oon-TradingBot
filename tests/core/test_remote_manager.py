@@ -97,7 +97,7 @@ class TestGetState:
 
     def test_default_state_when_no_file(self, tmp_dirs):
         state = rm.get_state()
-        assert state["phase"] == "Offline"  # kept as English status label
+        assert state["phase"] == "Offline"
         assert state["balance"] == 0
         assert state["portfolio"] == []
         assert state["high_water_marks"] == {}

@@ -26,8 +26,8 @@ def log_success(action, name, isin, amount, price, reason, profit=None):
             f"REASON: {reason}\n"
         )
 
-        with open(filename, "a", encoding="utf-8") as f:
-            f.write(log_line)
+        with open(filename, "a", encoding="utf-8") as file:
+            file.write(log_line)
 
         print(f"   Log entry saved to {filename}")
 
@@ -44,8 +44,8 @@ def get_todays_log_content():
         if not os.path.exists(filename):
             return "No transactions today."
 
-        with open(filename, "r", encoding="utf-8") as f:
-            content = f.read()
+        with open(filename, "r", encoding="utf-8") as file:
+            content = file.read()
 
         return content if content else "No transactions today."
     except Exception as e:
@@ -57,6 +57,14 @@ def _find_log_files():
     if not os.path.exists(config.LOG_DIR):
         return []
     return sorted(glob.glob(os.path.join(config.LOG_DIR, "log_*.txt")), reverse=True)
+
+
+def _extract_field(part):
+    """Extract the field key from a log part like ' NAME: Apple '. Returns (key, value) or None."""
+    for key in ("NAME:", "ISIN:", "QTY:", "PRICE_EST:", "PROFIT:", "REASON:"):
+        if key in part:
+            return key, part.split(key)[1].strip()
+    return None
 
 
 def _parse_log_line(line):
@@ -83,19 +91,30 @@ def _parse_log_line(line):
         entry["action"] = parts[0].split("ACTION:")[1].strip()
 
         for part in parts[1:]:
-            if "NAME:" in part:
-                entry["name"] = part.split("NAME:")[1].strip()
-            elif "ISIN:" in part:
-                entry["isin"] = part.split("ISIN:")[1].strip()
-            elif "QTY:" in part:
-                entry["quantity"] = clean_amount(part.split("QTY:")[1])
-            elif "PRICE_EST:" in part:
-                entry["price"] = clean_amount(part.split("PRICE_EST:")[1])
-            elif "PROFIT:" in part:
-                raw_profit = part.split("PROFIT:")[1].strip()
-                entry["profit"] = f"{float(raw_profit):+.2f} \u20ac" if raw_profit != "N/A" else "-"
-            elif "REASON:" in part:
-                entry["reason"] = part.split("REASON:")[1].strip()
+            field = _extract_field(part)
+            if field is None:
+                continue
+
+            match field[0]:
+                
+                case "NAME:":
+                    entry["name"] = field[1]
+
+                case "ISIN:":
+                    entry["isin"] = field[1]
+                
+                case "QTY:":
+                    entry["quantity"] = clean_amount(field[1])
+
+                case "PRICE_EST:":
+                    entry["price"] = clean_amount(field[1])
+                
+                case "PROFIT:":
+                    raw_profit = field[1]
+                    entry["profit"] = f"{float(raw_profit):+.2f} \u20ac" if raw_profit != "N/A" else "-"
+                
+                case "REASON:":
+                    entry["reason"] = field[1]
 
         return entry
     except Exception:
@@ -110,8 +129,8 @@ def get_transaction_history():
         date_part = os.path.basename(filepath).replace("log_", "").replace(".txt", "")
 
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                lines = f.readlines()
+            with open(filepath, "r", encoding="utf-8") as file:
+                lines = file.readlines()
         except Exception:
             continue
 
@@ -142,19 +161,18 @@ def print_analysis_summary(decisions):
         name = trade.get("name", "Unknown")
         reason = trade.get("grund", "No reason given.")
 
-        if action == "BUY":
-            isin = trade.get("isin", "N/A")
-            amount = trade.get("betrag_eur", 0)
-            print(f"{i}. BUY: {name}")
-            print(f"    ISIN:   {isin}")
-            print(f"    Budget: {amount} EUR")
-            print(f"    Reason: {reason}")
-
-        elif action == "SELL":
-            print(f"{i}. SELL: {name}")
-            print(f"    Reason: {reason}")
-
-        else:
-            print(f"{i}. {action}: {name} ({reason})")
+        match action:
+            case "BUY":
+                isin = trade.get("isin", "N/A")
+                amount = trade.get("betrag_eur", 0)
+                print(f"{i}. BUY: {name}")
+                print(f"    ISIN:   {isin}")
+                print(f"    Budget: {amount} EUR")
+                print(f"    Reason: {reason}")
+            case "SELL":
+                print(f"{i}. SELL: {name}")
+                print(f"    Reason: {reason}")
+            case _:
+                print(f"{i}. {action}: {name} ({reason})")
 
         print("-" * 40)

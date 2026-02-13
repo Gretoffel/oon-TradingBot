@@ -10,8 +10,8 @@ def load_blacklist():
         return []
 
     try:
-        with open(config.BLACKLIST_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        with open(config.BLACKLIST_FILE, 'r', encoding='utf-8') as file:
+            data = json.load(file)
             if isinstance(data, list):
                 return data
             return []
@@ -26,8 +26,8 @@ def save_blacklist(data):
         if not os.path.exists(config.JSON_DIR):
             os.makedirs(config.JSON_DIR)
 
-        with open(config.BLACKLIST_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
+        with open(config.BLACKLIST_FILE, 'w', encoding='utf-8') as file:
+            json.dump(data, file, indent=4)
     except Exception as e:
         print(f"Warning: Failed to save blacklist: {e}")
 
