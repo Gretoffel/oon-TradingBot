@@ -1,7 +1,8 @@
 from core import config
 from datetime import datetime
 from services.market_data import get_market_snapshot, get_isin_by_name, is_market_open, get_minutes_until_close
-from core.utils import load_blacklist, calculate_fee
+from core.blacklist import load_blacklist
+from core.parsing import calculate_fee
 from core import remote_manager
 
 def analyze_portfolio_safety(depot_data, ai_defense_results, market_snapshot):

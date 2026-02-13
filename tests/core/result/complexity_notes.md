@@ -28,7 +28,7 @@ elevated complexity that warrants future refactoring.
 ### 2. `core.remote_manager.update_status()`
 
 **Severity: MEDIUM**
-
+v
 - **Parameter count**: 6 parameters (phase, details, balance, portfolio,
   open_orders, high_water_marks)
 - **Read-modify-write**: Reads existing state, merges with new values, writes

@@ -2,7 +2,7 @@ import asyncio
 from playwright.async_api import async_playwright
 from core import config
 from core import remote_manager
-from core.utils import print_analysis_summary
+from core.transaction_log import print_analysis_summary
 from trading.actions import execute_buy_order, execute_sell_order
 from services.browser_utils import create_browser_context
 from services.oon_service import login, scan_depot

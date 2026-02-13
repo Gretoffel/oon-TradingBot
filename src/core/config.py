@@ -101,8 +101,8 @@ TEST_ORDERS = []
 def _load_web_config():
     cfg_file = os.path.join(CONFIG_DIR, "ai_config.json")
     try:
-        with open(cfg_file, "r", encoding="utf-8") as f:
-            return json.load(f).get("web_config", False)
+        with open(cfg_file, "r", encoding="utf-8") as file:
+            return json.load(file).get("web_config", False)
     except Exception:
         return False
 

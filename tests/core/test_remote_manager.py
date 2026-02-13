@@ -106,7 +106,7 @@ class TestGetState:
         with open(tmp_dirs["state_file"], "w") as f:
             f.write("not valid json!!!")
         state = rm.get_state()
-        assert state["phase"] == "Fehler"
+        assert state["phase"] == "Error"
 
     def test_reads_existing_state(self, tmp_dirs):
         data = {
@@ -241,7 +241,7 @@ class TestGetLiveLogs:
 
     def test_returns_placeholder_when_no_file(self, tmp_dirs):
         result = rm.get_live_logs()
-        assert "Warte auf Log-Daten" in result
+        assert "Waiting for log data" in result
 
     def test_reads_last_n_lines(self, tmp_dirs):
         with open(tmp_dirs["session_log"], "w") as f:
