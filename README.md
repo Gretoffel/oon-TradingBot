@@ -1,5 +1,10 @@
 # OON Trading Bot
 
+![GitHub issues](https://img.shields.io/github/issues/Gretoffel/oon-TradingBot)
+![GitHub PRs](https://img.shields.io/github/issues-pr/Gretoffel/oon-TradingBot)
+![GitHub last commit](https://img.shields.io/github/last-commit/Gretoffel/oon-TradingBot)
+![GitHub License](https://img.shields.io/github/license/Gretoffel/oon-TradingBot)
+
 An automated trading bot for the [OON Boersespiel](https://www.oon-boersespiel.at) (OON Stock Market Game) using AI-powered decision making, technical analysis, and browser automation.
 
 > [!IMPORTANT]
