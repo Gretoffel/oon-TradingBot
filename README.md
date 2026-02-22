@@ -156,6 +156,9 @@ Each entry contains: timestamp, action (BUY/SELL), stock name, ISIN, quantity, p
 
 Session output is also logged to `logs/session_live.log`.
 
+## View
+![Alt](https://repobeats.axiom.co/api/embed/bd05277d35983dc94452e70861a04f46a3ec183f.svg "Repobeats analytics image")
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, and pull request guidelines.
